@@ -39,9 +39,9 @@ include_directories(include /usr/include/aarch64-linux-gnu ${CUDA_INCLUDE_DIRS})
 
 # # Create Cpp executable
 # add_executable(yolo_rt src/yolo_main.cpp)
-add_executable(tensorrt_test src/tensorrt_test.cpp)
+# add_executable(tensorrt_test src/tensorrt_test.cpp)
 
-set(yolo_rt_dependencies "rclcpp" "Torch" "nlohmann_json" "sensor_msgs" "waitable_test")
+# set(yolo_rt_dependencies "rclcpp" "Torch" "nlohmann_json" "sensor_msgs" "waitable_test")
 # ament_target_dependencies(yolo_rt_node ${yolo_rt_dependencies})
 # ament_target_dependencies(yolo_rt_model ${yolo_rt_dependencies})
 # ament_target_dependencies(yolo_rt_node ${yolo_rt_dependencies})
@@ -51,7 +51,7 @@ set(yolo_rt_dependencies "rclcpp" "Torch" "nlohmann_json" "sensor_msgs" "waitabl
 # target_link_libraries(yolo_rt_node yolo_rt_model)
 # target_link_libraries(yolo_rt_node "${TORCH_LIBRARIES}")
 # target_link_libraries(yolo_rt_model "${TORCH_LIBRARIES}")
-target_link_libraries(tensorrt_test /usr/lib/aarch64-linux-gnu/libnvinfer.so ${CUDA_LIBRARIES})
+# target_link_libraries(tensorrt_test /usr/lib/aarch64-linux-gnu/libnvinfer.so ${CUDA_LIBRARIES})
 
 install(DIRECTORY 
   launch
@@ -61,7 +61,7 @@ install(DIRECTORY
 # Install Cpp executables
 install(TARGETS
   # yolo_rt
-  tensorrt_test
+  # tensorrt_test
   DESTINATION lib/${PROJECT_NAME}
 )
 
