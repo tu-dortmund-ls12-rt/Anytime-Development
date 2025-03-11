@@ -1,9 +1,19 @@
 int32 goal
 builtin_interfaces/Time client_start
+builtin_interfaces/Time action_client_receive
+builtin_interfaces/Time action_client_send
 builtin_interfaces/Time action_send
 ---
 float32 result
 int32 iterations
+builtin_interfaces/Time action_client_receive
+builtin_interfaces/Time action_client_send
+builtin_interfaces/Time action_server_receive
+builtin_interfaces/Time action_server_accept
+builtin_interfaces/Time action_server_start
+builtin_interfaces/Time action_server_cancel
+builtin_interfaces/Time action_server_compute_end
+builtin_interfaces/Time action_server_send_result
 builtin_interfaces/Time client_start
 builtin_interfaces/Time action_send
 builtin_interfaces/Time action_accept
