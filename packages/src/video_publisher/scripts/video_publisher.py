@@ -21,8 +21,6 @@ class VideoPublisher(Node):
         self.image_path = self.get_parameter(
             'image_path').get_parameter_value().string_value
 
-        self.get_logger().info('Image path: %s' % self.image_path)
-
         if not self.image_path or not os.path.exists(self.image_path):
             self.get_logger().error('Image path not set or invalid!')
             rclpy.shutdown()
