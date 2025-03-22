@@ -22,12 +22,7 @@
 	// Configure runtime settings
 	"runArgs": [
 		"--network=host",
-		"--gpus=all",
-		"--runtime=nvidia",
 		"--privileged"
-	],
-	"mounts": [
-		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
 	],
 	// Configure VS Code extensions
 	"customizations": {
