@@ -18,6 +18,9 @@ def include_launch_description(context: LaunchContext):
     else:
         raise ValueError('Invalid threading type')
 
+    goal_timer_period = LaunchConfiguration('goal_timer_period_ms')
+    cancel_timeout_period = LaunchConfiguration('cancel_timeout_period_ms')
+
     anytime_cmd = ComposableNodeContainer(
         name='anytime_client_component_container',
         namespace='',
@@ -27,7 +30,11 @@ def include_launch_description(context: LaunchContext):
             ComposableNode(
                 package='anytime_monte_carlo',
                 plugin='AnytimeActionClient',
-                name='anytime_client'
+                name='anytime_client',
+                parameters=[{
+                    'goal_timer_period_ms': goal_timer_period,
+                    'cancel_timeout_period_ms': cancel_timeout_period
+                }]
             )
         ]
     )
@@ -47,11 +54,25 @@ def generate_launch_description():
         default_value='single',
         description='Threading type'
     )
+    
+    goal_timer_period_arg = DeclareLaunchArgument(
+        'goal_timer_period_ms',
+        default_value='100',
+        description='Period in milliseconds for the goal request timer'
+    )
+    
+    cancel_timeout_period_arg = DeclareLaunchArgument(
+        'cancel_timeout_period_ms',
+        default_value='50',
+        description='Period in milliseconds for the cancel timeout timer'
+    )
 
     # Launch Description
     launch_description = LaunchDescription()
 
     launch_description.add_action(threading_type_arg)
+    launch_description.add_action(goal_timer_period_arg)
+    launch_description.add_action(cancel_timeout_period_arg)
 
     launch_description.add_action(OpaqueFunction(function=include_launch_description))
 

@@ -1,25 +1,15 @@
 int32 goal
-builtin_interfaces/Time client_start
-builtin_interfaces/Time action_client_receive
-builtin_interfaces/Time action_client_send
-builtin_interfaces/Time action_send
 ---
 float32 result
 int32 iterations
-builtin_interfaces/Time action_client_receive
-builtin_interfaces/Time action_client_send
+bool is_reactive_proactive
+bool is_single_multi
+int32 batch_size
+builtin_interfaces/Time batch_time
 builtin_interfaces/Time action_server_receive
 builtin_interfaces/Time action_server_accept
 builtin_interfaces/Time action_server_start
 builtin_interfaces/Time action_server_cancel
-builtin_interfaces/Time action_server_compute_end
 builtin_interfaces/Time action_server_send_result
-builtin_interfaces/Time client_start
-builtin_interfaces/Time action_send
-builtin_interfaces/Time action_accept
-builtin_interfaces/Time action_start
-builtin_interfaces/Time action_cancel
-builtin_interfaces/Time action_compute_end
-builtin_interfaces/Time action_end
 ---
 float32 feedback

@@ -44,7 +44,7 @@
         {
             "label": "ROS2-Monte-Carlo-Server",
             "type": "shell",
-            "command": "source ${workspaceFolder}/packages/install/setup.bash && ros2 launch anytime_monte_carlo action_server.launch.py is_reactive_proactive:=${input:is_reactive_proactive} multi_threading:=${input:multi_threading} batch_size:=${input:batch_size}",
+            "command": "source ${workspaceFolder}/packages/install/setup.bash && ros2 launch anytime_monte_carlo action_server.launch.py anytime_reactive:=${input:anytime_reactive} separate_thread:=${input:separate_thread} multi_threading:=${input:multi_threading}",
             "problemMatcher": [],
             "presentation": {
                 "echo": true,
@@ -58,14 +58,24 @@
     ],
     "inputs": [
         {
-            "id": "is_reactive_proactive",
+            "id": "anytime_reactive",
             "type": "pickString",
-            "description": "Select the is_reactive_proactive parameter",
+            "description": "Select the anytime_reactive parameter",
             "options": [
-                "reactive",
-                "proactive"
+                "true",
+                "false"
             ],
-            "default": "reactive"
+            "default": "false"
+        },
+        {
+            "id": "separate_thread",
+            "type": "pickString",
+            "description": "Select the separate_thread parameter",
+            "options": [
+                "true",
+                "false"
+            ],
+            "default": "false"
         },
         {
             "id": "multi_threading",
@@ -76,12 +86,6 @@
                 "false"
             ],
             "default": "false"
-        },
-        {
-            "id": "batch_size",
-            "type": "promptString",
-            "description": "Enter the batch size parameter",
-            "default": "2"
         }
     ]
 }

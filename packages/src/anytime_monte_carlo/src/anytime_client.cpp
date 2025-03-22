@@ -1,73 +1,88 @@
 #include "anytime_monte_carlo/anytime_client.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <numeric>
 #include <vector>
 
-AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions& options)
-    : Node("anytime_action_client", options) {
-  RCLCPP_INFO(this->get_logger(), "Starting Anytime action client");
+AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
+: Node("anytime_action_client", options)
+{
+  RCLCPP_DEBUG(this->get_logger(), "Starting Anytime action client");
+
+  // Declare parameters with default values
+  this->declare_parameter("goal_timer_period_ms", 1000);
+  this->declare_parameter("cancel_timeout_period_ms", 500);
+
+  int goal_timer_period = this->get_parameter("goal_timer_period_ms").as_int();
+  int cancel_timeout_period = this->get_parameter("cancel_timeout_period_ms").as_int();
+
+  RCLCPP_DEBUG(this->get_logger(), "Goal timer period: %d ms", goal_timer_period);
+  RCLCPP_DEBUG(this->get_logger(), "Cancel timeout period: %d ms", cancel_timeout_period);
 
   // Initialize the action client
   action_client_ =
-      rclcpp_action::create_client<anytime_interfaces::action::Anytime>(
-          this, "anytime");
+    rclcpp_action::create_client<anytime_interfaces::action::Anytime>(this, "anytime");
 
   // Create a timer to send goals periodically
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(100),
-                                   [this]() { this->send_goal(); });
+  timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(goal_timer_period), [this]() { this->send_goal(); });
 
   // Create a timer for cancel timeout, initially canceled
-  cancel_timeout_timer_ =
-      this->create_wall_timer(std::chrono::milliseconds(50),
-                              [this]() { this->cancel_timeout_callback(); });
+  cancel_timeout_timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(cancel_timeout_period),
+    [this]() { this->cancel_timeout_callback(); });
   cancel_timeout_timer_->cancel();
 }
 
 AnytimeActionClient::~AnytimeActionClient() {}
 
-void AnytimeActionClient::send_goal() {
+void AnytimeActionClient::send_goal()
+{
+  RCLCPP_DEBUG(this->get_logger(), "Sending goal info");
   // Cancel the timer to prevent sending multiple goals
   timer_->cancel();
-  // RCLCPP_INFO(this->get_logger(), "Sending goal");
 
   // Create and populate the goal message
   auto goal_msg = anytime_interfaces::action::Anytime::Goal();
-  goal_msg.goal = 10000000;
-  goal_msg.client_start = this->now();
+  goal_msg.goal = 100000000;
+  client_goal_start_time_ = this->now();
 
   // Define the goal options with callbacks
-  auto send_goal_options = rclcpp_action::Client<
-      anytime_interfaces::action::Anytime>::SendGoalOptions();
-  send_goal_options.goal_response_callback =
-      [this](AnytimeGoalHandle::SharedPtr goal_handle) {
-        this->goal_response_callback(goal_handle);
-      };
+  auto send_goal_options =
+    rclcpp_action::Client<anytime_interfaces::action::Anytime>::SendGoalOptions();
+  send_goal_options.goal_response_callback = [this](AnytimeGoalHandle::SharedPtr goal_handle) {
+    this->goal_response_callback(goal_handle);
+  };
   send_goal_options.feedback_callback =
-      [this](AnytimeGoalHandle::SharedPtr goal_handle,
-             const std::shared_ptr<
-                 const anytime_interfaces::action::Anytime::Feedback>
-                 feedback) { this->feedback_callback(goal_handle, feedback); };
-  send_goal_options.result_callback =
-      [this](const AnytimeGoalHandle::WrappedResult& result) {
-        this->result_callback(result);
-      };
+    [this](
+      AnytimeGoalHandle::SharedPtr goal_handle,
+      const std::shared_ptr<const anytime_interfaces::action::Anytime::Feedback> feedback) {
+      this->feedback_callback(goal_handle, feedback);
+    };
+  send_goal_options.result_callback = [this](const AnytimeGoalHandle::WrappedResult & result) {
+    this->result_callback(result);
+  };
 
   // Send the goal asynchronously
-  goal_msg.action_send = this->now();
   if (!action_client_->wait_for_action_server(std::chrono::seconds(5))) {
-    RCLCPP_ERROR(this->get_logger(),
-                 "Action server not available after waiting");
+    RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
     timer_->reset();
     return;
   }
+
+  client_send_start_time_ = this->now();
+
   action_client_->async_send_goal(goal_msg, send_goal_options);
-  // set the cancel time to the client start time
-  cancel_send_time_ = goal_msg.client_start;
+
+  client_send_end_time_ = this->now();
 }
 
-void AnytimeActionClient::goal_response_callback(
-    AnytimeGoalHandle::SharedPtr goal_handle) {
+void AnytimeActionClient::goal_response_callback(AnytimeGoalHandle::SharedPtr goal_handle)
+{
+  client_goal_response_time_ = this->now();
   // Check if the goal was rejected by the server
   if (!goal_handle) {
     RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
@@ -75,10 +90,6 @@ void AnytimeActionClient::goal_response_callback(
     timer_->reset();
     return;
   }
-
-  // Log that the goal was accepted by the server
-  // RCLCPP_INFO(this->get_logger(),
-  //             "Goal accepted by server, waiting for result");
 
   // Store the goal handle for future reference
   goal_handle_ = goal_handle;
@@ -88,28 +99,25 @@ void AnytimeActionClient::goal_response_callback(
 }
 
 void AnytimeActionClient::feedback_callback(
-    AnytimeGoalHandle::SharedPtr goal_handle,
-    const std::shared_ptr<const anytime_interfaces::action::Anytime::Feedback>
-        feedback) {
+  AnytimeGoalHandle::SharedPtr goal_handle,
+  const std::shared_ptr<const anytime_interfaces::action::Anytime::Feedback> feedback)
+{
   (void)goal_handle;
   // Log the feedback received from the action server
-  RCLCPP_INFO(this->get_logger(), "Next number in the sequence: %f",
-              feedback->feedback);
+  RCLCPP_DEBUG(this->get_logger(), "Next number in the sequence: %f", feedback->feedback);
 }
 
-void AnytimeActionClient::result_callback(
-    const AnytimeGoalHandle::WrappedResult& result) {
-  receive_time_ = this->now();
+void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult & result)
+{
+  client_result_time_ = this->now();
   cancel_timeout_timer_->cancel();
   // Log the result based on the result code
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
       // If the goal succeeded, log the result
-      RCLCPP_INFO(this->get_logger(), "Result received: %f",
-                  result.result->result);
+      RCLCPP_DEBUG(this->get_logger(), "Result received: %f", result.result->result);
       // print the number of iterations
-      RCLCPP_INFO(this->get_logger(), "Number of iterations: %d",
-                  result.result->iterations);
+      RCLCPP_DEBUG(this->get_logger(), "Number of iterations: %d", result.result->iterations);
       print_time_differences(result);
       break;
     case rclcpp_action::ResultCode::ABORTED:
@@ -119,11 +127,9 @@ void AnytimeActionClient::result_callback(
     case rclcpp_action::ResultCode::CANCELED:
       // If the goal was canceled, log an error and the result after cancel
       RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
-      RCLCPP_INFO(this->get_logger(), "Result after cancel callback: %f",
-                  result.result->result);
+      RCLCPP_DEBUG(this->get_logger(), "Result after cancel callback: %f", result.result->result);
       // print the number of iterations
-      RCLCPP_INFO(this->get_logger(), "Number of iterations: %d",
-                  result.result->iterations);
+      RCLCPP_DEBUG(this->get_logger(), "Number of iterations: %d", result.result->iterations);
       print_time_differences(result);
       break;
     default:
@@ -136,109 +142,113 @@ void AnytimeActionClient::result_callback(
   timer_->reset();
 }
 
-void AnytimeActionClient::cancel_timeout_callback() {
-  RCLCPP_INFO(this->get_logger(), "Timeout reached, canceling goal");
+void AnytimeActionClient::cancel_timeout_callback()
+{
+  RCLCPP_DEBUG(this->get_logger(), "Timeout reached, canceling goal");
 
   // Cancel the timeout timer to prevent multiple cancel requests
   cancel_timeout_timer_->cancel();
 
-  // Set the cancel time
-  cancel_send_time_ = this->now();
-
+  client_send_cancel_start_time_ = this->now();
   // Send a cancel request for the current goal
   action_client_->async_cancel_goal(goal_handle_);
+  client_send_cancel_end_time_ = this->now();
 
-  RCLCPP_INFO(this->get_logger(), "Cancel request sent");
+  RCLCPP_DEBUG(this->get_logger(), "Cancel request sent");
 }
 
-void AnytimeActionClient::print_time_differences(
-    const AnytimeGoalHandle::WrappedResult& result) {
-  auto action_send_time = rclcpp::Time(result.result->action_send);
-  auto action_start_time = rclcpp::Time(result.result->action_start);
-  auto action_cancel_time = rclcpp::Time(result.result->action_cancel);
-  auto action_end_time = rclcpp::Time(result.result->action_end);
-  auto receive_time = receive_time_;
+void AnytimeActionClient::print_time_differences(const AnytimeGoalHandle::WrappedResult & result)
+{
+  // Extract timestamps from client side
+  RCLCPP_DEBUG(this->get_logger(), "Extracting raw timestamps");
 
-  auto interval1 = action_start_time - action_send_time;
-  auto interval2 = action_cancel_time - cancel_send_time_;
-  auto interval3 = action_end_time - action_cancel_time;
-  auto interval4 = receive_time - action_end_time;
-  auto interval5 = receive_time - cancel_send_time_;
-  auto interval6 = receive_time - action_send_time;
+  // Extract timestamps from server side (sent in the result)
+  rclcpp::Time action_server_receive_time(
+    result.result->action_server_receive.sec, result.result->action_server_receive.nanosec);
+  rclcpp::Time action_server_accept_time(
+    result.result->action_server_accept.sec, result.result->action_server_accept.nanosec);
+  rclcpp::Time action_server_start_time(
+    result.result->action_server_start.sec, result.result->action_server_start.nanosec);
+  rclcpp::Time action_server_cancel_time(
+    result.result->action_server_cancel.sec, result.result->action_server_cancel.nanosec);
+  rclcpp::Time action_server_send_result_time(
+    result.result->action_server_send_result.sec, result.result->action_server_send_result.nanosec);
 
-  intervals1_.push_back(interval1.nanoseconds());
-  intervals2_.push_back(interval2.nanoseconds());
-  intervals3_.push_back(interval3.nanoseconds());
-  intervals4_.push_back(interval4.nanoseconds());
-  intervals5_.push_back(interval5.nanoseconds());
-  intervals6_.push_back(interval6.nanoseconds());
+  rclcpp::Time batch_time(result.result->batch_time.sec, result.result->batch_time.nanosec);
 
-  auto calculate_stats = [](const std::vector<int64_t>& intervals) {
-    double mean = std::accumulate(intervals.begin(), intervals.end(), 0.0) /
-                  intervals.size() / 1e6;  // Convert to milliseconds
-    double sq_sum = std::inner_product(intervals.begin(), intervals.end(),
-                                       intervals.begin(), 0.0) /
-                    1e12;  // Convert to milliseconds^2
-    double stdev = std::sqrt(sq_sum / intervals.size() - mean * mean);
-    auto max = *std::max_element(intervals.begin(), intervals.end()) /
-               1e6;  // Convert to milliseconds
-    auto p99 = intervals[static_cast<size_t>(intervals.size() * 0.99)] /
-               1e6;  // Convert to milliseconds
-    auto p999 = intervals[static_cast<size_t>(intervals.size() * 0.999)] /
-                1e6;  // Convert to milliseconds
-    return std::make_tuple(mean, stdev, p99, p999, max);
-  };
+  // Log raw timestamps in nanoseconds
+  RCLCPP_DEBUG(this->get_logger(), "Raw timestamp data (nanoseconds):");
+  RCLCPP_DEBUG(
+    this->get_logger(), "client_goal_start_time: %ld", client_goal_start_time_.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "client_send_start_time: %ld", client_send_start_time_.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "client_send_end_time: %ld", client_send_end_time_.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "client_goal_response_time: %ld", client_goal_response_time_.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "client_send_cancel_start_time: %ld",
+    client_send_cancel_start_time_.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "client_send_cancel_end_time: %ld",
+    client_send_cancel_end_time_.nanoseconds());
+  RCLCPP_DEBUG(this->get_logger(), "client_result_time: %ld", client_result_time_.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "action_server_receive_time: %ld",
+    action_server_receive_time.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "action_server_accept_time: %ld", action_server_accept_time.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "action_server_start_time: %ld", action_server_start_time.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "action_server_cancel_time: %ld", action_server_cancel_time.nanoseconds());
+  RCLCPP_DEBUG(
+    this->get_logger(), "action_server_send_result_time: %ld",
+    action_server_send_result_time.nanoseconds());
+  RCLCPP_DEBUG(this->get_logger(), "batch_time_ns: %ld", batch_time.nanoseconds());
+  RCLCPP_DEBUG(this->get_logger(), "iterations: %d", result.result->iterations);
+  RCLCPP_DEBUG(this->get_logger(), "batch_size: %d", result.result->batch_size);
 
-  auto [mean1, stdev1, p99_1, p999_1, max1] = calculate_stats(intervals1_);
-  auto [mean2, stdev2, p99_2, p999_2, max2] = calculate_stats(intervals2_);
-  auto [mean3, stdev3, p99_3, p999_3, max3] = calculate_stats(intervals3_);
-  auto [mean4, stdev4, p99_4, p999_4, max4] = calculate_stats(intervals4_);
-  auto [mean5, stdev5, p99_5, p999_5, max5] = calculate_stats(intervals5_);
-  auto [mean6, stdev6, p99_6, p999_6, max6] = calculate_stats(intervals6_);
+  // Generate dynamic filename based on batch size and reactive/proactive state
+  std::string mode = result.result->is_reactive_proactive ? "proactive" : "reactive";
+  std::string threading = result.result->is_single_multi ? "multi" : "single";
 
-  RCLCPP_INFO(
-      this->get_logger(),
-      "Interval 1 (action_send to action_start): mean=%f ms, stdev=%f ms, "
-      "p99=%f ms, p999=%f ms, max=%f ms",
-      mean1, stdev1, p99_1, p999_1, max1);
-  RCLCPP_INFO(this->get_logger(),
-              "Interval 2 (cancel_send_time_ to action_cancel): mean=%f ms, "
-              "stdev=%f ms, "
-              "p99=%f ms, p999=%f ms, max=%f ms",
-              mean2, stdev2, p99_2, p999_2, max2);
-  RCLCPP_INFO(
-      this->get_logger(),
-      "Interval 3 (action_cancel to action_end): mean=%f ms, stdev=%f ms, "
-      "p99=%f ms, p999=%f ms, max=%f ms",
-      mean3, stdev3, p99_3, p999_3, max3);
-  RCLCPP_INFO(this->get_logger(),
-              "Interval 4 (action_end to receive): mean=%f ms, stdev=%f ms, "
-              "p99=%f ms, p999=%f ms, max=%f ms",
-              mean4, stdev4, p99_4, p999_4, max4);
-  RCLCPP_INFO(this->get_logger(),
-              "Interval 5 (action_cancel to receive): mean=%f ms, stdev=%f ms, "
-              "p99=%f ms, p999=%f ms, max=%f ms",
-              mean5, stdev5, p99_5, p999_5, max5);
-  RCLCPP_INFO(this->get_logger(),
-              "Interval 6 (action_send to receive): mean=%f ms, stdev=%f ms, "
-              "p99=%f ms, p999=%f ms, max=%f ms",
-              mean6, stdev6, p99_6, p999_6, max6);
+  // Create results directory if it doesn't exist
+  std::string results_dir = "results";
+  std::filesystem::create_directories(results_dir);
 
-  // Calculate the statistics for the iterations, which is an integer
-  auto iterations = result.result->iterations;
-  iterations_.push_back(iterations);
+  std::string filename = results_dir + "/anytime_raw_timestamps_batch" + "_" +
+                         std::to_string(result.result->batch_size) + "_" + mode + "_" + threading +
+                         ".csv";
 
-  auto mean = std::accumulate(iterations_.begin(), iterations_.end(), 0.0) /
-              iterations_.size();
-  auto sq_sum = std::inner_product(iterations_.begin(), iterations_.end(),
-                                   iterations_.begin(), 0.0);
-  auto stdev = std::sqrt(sq_sum / iterations_.size() - mean * mean);
-  auto max = *std::max_element(iterations_.begin(), iterations_.end());
-  auto p99 = iterations_[static_cast<size_t>(iterations_.size() * 0.99)];
-  auto p999 = iterations_[static_cast<size_t>(iterations_.size() * 0.999)];
+  RCLCPP_DEBUG(this->get_logger(), "Using output file: %s", filename.c_str());
 
-  RCLCPP_INFO(
-      this->get_logger(),
-      "Number of iterations: mean=%f, stdev=%f, p99=%li, p999=%li, max=%li",
-      mean, stdev, p99, p999, max);
+  bool file_exists = std::ifstream(filename).good();
+
+  std::ofstream file;
+  file.open(filename, std::ios::app);  // Append mode
+
+  // Write header if file is new
+  if (!file_exists) {
+    file << "client_goal_start,client_send_start,client_send_end,client_goal_response,"
+         << "client_send_cancel_start,client_send_cancel_end,client_result,"
+         << "server_receive,server_accept,server_start,server_cancel,server_send_result,"
+         << "batch_time_ns,iterations,batch_size\n";
+  }
+
+  // Write raw timestamp data
+  file << client_goal_start_time_.nanoseconds() << "," << client_send_start_time_.nanoseconds()
+       << "," << client_send_end_time_.nanoseconds() << ","
+       << client_goal_response_time_.nanoseconds() << ","
+       << client_send_cancel_start_time_.nanoseconds() << ","
+       << client_send_cancel_end_time_.nanoseconds() << "," << client_result_time_.nanoseconds()
+       << "," << action_server_receive_time.nanoseconds() << ","
+       << action_server_accept_time.nanoseconds() << "," << action_server_start_time.nanoseconds()
+       << "," << action_server_cancel_time.nanoseconds() << ","
+       << action_server_send_result_time.nanoseconds() << "," << batch_time.nanoseconds() << ","
+       << result.result->iterations << "," << result.result->batch_size << "\n";
+
+  file.close();
+
+  RCLCPP_DEBUG(this->get_logger(), "Raw timestamp data saved to %s", filename.c_str());
 }

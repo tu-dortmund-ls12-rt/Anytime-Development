@@ -7,10 +7,11 @@
 #include "rclcpp_components/register_node_macro.hpp"
 
 // Class definition for the Anytime Action Client
-class AnytimeActionClient : public rclcpp::Node {
- public:
+class AnytimeActionClient : public rclcpp::Node
+{
+public:
   // Constructor
-  AnytimeActionClient(const rclcpp::NodeOptions& options);
+  AnytimeActionClient(const rclcpp::NodeOptions & options);
 
   // Destructor
   ~AnytimeActionClient();
@@ -19,10 +20,9 @@ class AnytimeActionClient : public rclcpp::Node {
   using Anytime = anytime_interfaces::action::Anytime;
   using AnytimeGoalHandle = rclcpp_action::ClientGoalHandle<Anytime>;
 
- private:
+private:
   // Action client for the Anytime action
-  rclcpp_action::Client<anytime_interfaces::action::Anytime>::SharedPtr
-      action_client_;
+  rclcpp_action::Client<anytime_interfaces::action::Anytime>::SharedPtr action_client_;
 
   // Timer for sending goals
   rclcpp::TimerBase::SharedPtr timer_ = nullptr;
@@ -41,32 +41,38 @@ class AnytimeActionClient : public rclcpp::Node {
 
   // Callback for feedback from the action server
   void feedback_callback(
-      AnytimeGoalHandle::SharedPtr,
-      const std::shared_ptr<const Anytime::Feedback> feedback);
+    AnytimeGoalHandle::SharedPtr, const std::shared_ptr<const Anytime::Feedback> feedback);
 
   // Callback for result from the action server
-  void result_callback(const AnytimeGoalHandle::WrappedResult& result);
+  void result_callback(const AnytimeGoalHandle::WrappedResult & result);
 
   // Callback for cancel timeout
   void cancel_timeout_callback();
 
   // Function to print time differences between action result timestamps
-  void print_time_differences(const AnytimeGoalHandle::WrappedResult& result);
+  void print_time_differences(const AnytimeGoalHandle::WrappedResult & result);
 
-  // receive time
-  rclcpp::Time receive_time_ = rclcpp::Time(0, 0);
+  // Variables to store timestamps
+  // Timestamps for client-side events
+  rclcpp::Time client_goal_start_time_;         // When the goal was created
+  rclcpp::Time client_send_start_time_;         // Right before sending the goal
+  rclcpp::Time client_send_end_time_;           // Right after sending the goal
+  rclcpp::Time client_goal_response_time_;      // When goal response was received
+  rclcpp::Time client_result_time_;             // When result was received
+  rclcpp::Time client_send_cancel_start_time_;  // Before sending cancel request
+  rclcpp::Time client_send_cancel_end_time_;    // After sending cancel request
 
-  // cancel send time
-  rclcpp::Time cancel_send_time_ = rclcpp::Time(0, 0);
+  // Data structures to store timing intervals for statistics
+  std::vector<int64_t> intervals_;        // Store time intervals in nanoseconds
+  std::vector<int32_t> iterations_data_;  // Store iteration counts
 
-  // Data structures to store intervals
+  // Legacy data structures (kept for compatibility)
   std::vector<int64_t> intervals1_;
   std::vector<int64_t> intervals2_;
   std::vector<int64_t> intervals3_;
   std::vector<int64_t> intervals4_;
   std::vector<int64_t> intervals5_;
   std::vector<int64_t> intervals6_;
-
   std::vector<int64_t> iterations_;
 };
 

@@ -13,11 +13,13 @@ def include_launch_description(context: LaunchContext):
 
     if context.launch_configurations["multi_threading"].lower() == "false":
         executable = "component_container"
+        is_single_multi = "single"
     elif context.launch_configurations["multi_threading"].lower() == "true":
         executable = "component_container_mt"
+        is_single_multi = "multi"
     else:
         raise ValueError("Invalid threading type")
-
+    
     anytime_cmd = ComposableNodeContainer(
         name="anytime_server_component_container",
         namespace="",
@@ -30,13 +32,12 @@ def include_launch_description(context: LaunchContext):
                 plugin="AnytimeActionServer",
                 name="anytime_server",
                 parameters=[
-                    {"anytime_reactive": LaunchConfiguration("anytime_reactive")},
-                    {"separate_thread": LaunchConfiguration("separate_thread")},
-                    {"multi_threading": LaunchConfiguration("multi_threading")},
+                    {"is_reactive_proactive": LaunchConfiguration("is_reactive_proactive")},
                     {"batch_size": LaunchConfiguration("batch_size")},
-                ],
+                    {"is_single_multi": is_single_multi},
+                ]
             )
-        ],
+        ]
     )
 
     cmds = []
@@ -53,12 +54,8 @@ def generate_launch_description():
         "multi_threading", default_value="False", description="Threading type"
     )
 
-    anytime_reactive_arg = DeclareLaunchArgument(
-        "anytime_reactive", default_value="False", description="Anytime reactive"
-    )
-
-    separate_thread_arg = DeclareLaunchArgument(
-        "separate_thread", default_value="False", description="Separate thread"
+    anytime_reactive_proactive_arg = DeclareLaunchArgument(
+        "is_reactive_proactive", default_value="reactive", description="Anytime reactive"
     )
 
     batch_size_arg = DeclareLaunchArgument(
@@ -69,8 +66,7 @@ def generate_launch_description():
     launch_description = LaunchDescription()
 
     launch_description.add_action(threading_type_arg)
-    launch_description.add_action(anytime_reactive_arg)
-    launch_description.add_action(separate_thread_arg)
+    launch_description.add_action(anytime_reactive_proactive_arg)
     launch_description.add_action(batch_size_arg)
 
     launch_description.add_action(OpaqueFunction(function=include_launch_description))

@@ -1,72 +1,129 @@
 #!/bin/bash
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <batch_size>"
-    exit 1
-fi
+# Default operation mode: both running and plotting
+mode="both"
 
-batch_size=$1
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --run-only)
+            mode="run"
+            shift
+            ;;
+        --plot-only)
+            mode="plot"
+            shift
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo "Options:"
+            echo "  --run-only    Only run experiments without plotting"
+            echo "  --plot-only   Only plot results without running experiments"
+            echo "  --help        Display this help message"
+            echo "Default behavior: Run experiments and plot results"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 source packages/install/setup.bash
 
 declare -a threading_types=("False" "True")
 declare -a anytime_reactives=("False" "True")
-declare -a separate_threads=("False")
+declare -a batch_sizes=(1 16 256 4096 65536 1048576)
 
 # Create the results and plots directories
 mkdir -p results
 mkdir -p plots
 
-for threading in "${threading_types[@]}"; do
-    for reactive in "${anytime_reactives[@]}"; do
-        for separate in "${separate_threads[@]}"; do
-            for run in {1..3}; do
-                config_name="anytime_${threading}_${reactive}_${separate}_${batch_size}_run${run}"
-                echo "Running configuration: $config_name"
+# Run experiments if mode is "run" or "both"
+if [[ "$mode" == "run" || "$mode" == "both" ]]; then
+    echo "Running experiments..."
+    for batch_size in "${batch_sizes[@]}"; do
+        for threading in "${threading_types[@]}"; do
+            for isReactiveProactive in "${anytime_reactives[@]}"; do
+                for run in {1..1}; do
+                    
+                    # Map reactive parameter value
+                    if [ "$isReactiveProactive" = "True" ]; then
+                        reactive_param="proactive"
+                    else
+                        reactive_param="reactive"
+                    fi
+                    
+                    # Map threading parameter value
+                    if [ "$threading" = "True" ]; then
+                        threading_param="multi"
+                    else
+                        threading_param="single"
+                    fi
+                    
+                    config_name="anytime_${batch_size}_${reactive_param}_${threading_param}_run${run}"
+                    
+                    echo "Running configuration: $config_name"
 
-                # Start the action server in the background
-                ros2 launch anytime_monte_carlo action_server.launch.py multi_threading:=$threading anytime_reactive:=$reactive separate_thread:=$separate batch_size:=$batch_size > /dev/null &
-                server_pid=$!
-                
-                sleep 5
-                
-                # Start the action client in the background and log output
-                ros2 launch anytime_monte_carlo action_client.launch.py > "./results/${config_name}.log" &
-                client_pid=$!
-                
-                # Wait for 300 seconds
-                sleep 60
+                    # Start the action server in the background
+                    ros2 launch anytime_monte_carlo action_server.launch.py multi_threading:=$threading is_reactive_proactive:=$reactive_param batch_size:=$batch_size > ./results/${config_name}_server.log & server_pid=$!
+                    
+                    sleep 5
+                    
+                    # Start the action client in the background and log output
+                    ros2 launch anytime_monte_carlo action_client.launch.py threading_type:=single > "./results/${config_name}_client.log" & client_pid=$!
+                    
+                    # Wait for 60 seconds
+                    sleep 60
 
-                # Terminate both processes after 300 seconds
-                kill $server_pid 2>/dev/null
-                kill $client_pid 2>/dev/null
-                pkill -f '/opt/ros/humble'
-                
-                # Wait briefly to ensure processes have terminated
-                sleep 5
+                    # Terminate both processes after 60 seconds
+                    kill $server_pid 2>/dev/null
+                    kill $client_pid 2>/dev/null
+                    pkill -f '/opt/ros/humble'
+                    
+                    # Wait briefly to ensure processes have terminated
+                    sleep 5
+                done
             done
         done
     done
-done
-
-if [ "${#threading_types[@]}" -eq 2 ]; then
-    threading_parameter="Both"
-else
-    threading_parameter="${threading_types[0]}"
 fi
 
-if [ "${#anytime_reactives[@]}" -eq 2 ]; then
-    anytime_parameter="Both"
-else
-    anytime_parameter="${anytime_reactives[0]}"
+# Plot results if mode is "plot" or "both"
+if [[ "$mode" == "plot" || "$mode" == "both" ]]; then
+    echo "Plotting results..."
+    
+    # Prepare threading arguments
+    threading_args=""
+    for threading in "${threading_types[@]}"; do
+        # Map threading parameter value
+        if [ "$threading" = "True" ]; then
+            threading_args="$threading_args multi"
+        else
+            threading_args="$threading_args single"
+        fi
+    done
+    
+    # Prepare reactive arguments
+    reactive_args=""
+    for isReactiveProactive in "${anytime_reactives[@]}"; do
+        # Map reactive parameter value
+        if [ "$isReactiveProactive" = "True" ]; then
+            reactive_args="$reactive_args proactive"
+        else
+            reactive_args="$reactive_args reactive"
+        fi
+    done
+    
+    # Prepare batch size arguments
+    batch_args=""
+    for batch_size in "${batch_sizes[@]}"; do
+        batch_args="$batch_args $batch_size"
+    done
+    
+    echo "Running plotter with all configurations..."
+    python3 evaluation_plotter.py --threading $threading_args --reactive $reactive_args --batch-sizes $batch_args
 fi
-
-if [ "${#separate_threads[@]}" -eq 2 ]; then
-    separate_parameter="Both"
-else
-    separate_parameter="${separate_threads[0]}"
-fi
-
-echo "Plotting results for threading: $threading_parameter, anytime reactive: $anytime_parameter, separate threads: $separate_parameter"
-
-python3 evaluation_plotter.py $threading_parameter $anytime_parameter $separate_parameter $batch_size
