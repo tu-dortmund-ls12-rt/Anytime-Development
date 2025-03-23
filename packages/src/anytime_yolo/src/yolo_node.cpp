@@ -4,6 +4,6 @@
 
 YOLONode::YOLONode() : Node("YOLO")
 {
-  RCLCPP_INFO(get_logger(), "YOLONode");
+  RCLCPP_INFO(get_logger(), "YOLONode uwu");
   return;
 }
