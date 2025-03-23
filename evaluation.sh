@@ -2,6 +2,7 @@
 
 # Default operation mode: both running and plotting
 mode="both"
+num_runs=3  # Default number of runs
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -15,11 +16,17 @@ while [[ $# -gt 0 ]]; do
             mode="plot"
             shift
             ;;
+        --runs)
+            num_runs="$2"
+            shift
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo "Options:"
             echo "  --run-only    Only run experiments without plotting"
             echo "  --plot-only   Only plot results without running experiments"
+            echo "  --runs N      Number of runs for each configuration (default: 3)"
             echo "  --help        Display this help message"
             echo "Default behavior: Run experiments and plot results"
             exit 0
@@ -44,11 +51,11 @@ mkdir -p plots
 
 # Run experiments if mode is "run" or "both"
 if [[ "$mode" == "run" || "$mode" == "both" ]]; then
-    echo "Running experiments..."
+    echo "Running experiments with $num_runs runs per configuration..."
     for batch_size in "${batch_sizes[@]}"; do
         for threading in "${threading_types[@]}"; do
             for isReactiveProactive in "${anytime_reactives[@]}"; do
-                for run in {1..1}; do
+                for run in $(seq 1 $num_runs); do
                     
                     # Map reactive parameter value
                     if [ "$isReactiveProactive" = "True" ]; then
@@ -65,19 +72,20 @@ if [[ "$mode" == "run" || "$mode" == "both" ]]; then
                     fi
                     
                     config_name="anytime_${batch_size}_${reactive_param}_${threading_param}_run${run}"
+                    result_filename="anytime_raw_timestamps_batch_${batch_size}_${reactive_param}_${threading_param}_run${run}"
                     
-                    echo "Running configuration: $config_name"
+                    echo "Running configuration: $config_name (Run $run of $num_runs)"
 
                     # Start the action server in the background
                     ros2 launch anytime_monte_carlo action_server.launch.py multi_threading:=$threading is_reactive_proactive:=$reactive_param batch_size:=$batch_size > ./results/${config_name}_server.log & server_pid=$!
                     
                     sleep 5
                     
-                    # Start the action client in the background and log output
-                    ros2 launch anytime_monte_carlo action_client.launch.py threading_type:=single > "./results/${config_name}_client.log" & client_pid=$!
+                    # Start the action client in the background and pass result filename
+                    ros2 launch anytime_monte_carlo action_client.launch.py threading_type:=single result_filename:="${result_filename}" > "./results/${config_name}_client.log" & client_pid=$!
                     
                     # Wait for 60 seconds
-                    sleep 60
+                    sleep 300
 
                     # Terminate both processes after 60 seconds
                     kill $server_pid 2>/dev/null
@@ -94,7 +102,7 @@ fi
 
 # Plot results if mode is "plot" or "both"
 if [[ "$mode" == "plot" || "$mode" == "both" ]]; then
-    echo "Plotting results..."
+    echo "Plotting results combining data from $num_runs runs..."
     
     # Prepare threading arguments
     threading_args=""
@@ -125,5 +133,5 @@ if [[ "$mode" == "plot" || "$mode" == "both" ]]; then
     done
     
     echo "Running plotter with all configurations..."
-    python3 evaluation_plotter.py --threading $threading_args --reactive $reactive_args --batch-sizes $batch_args
+    python3 evaluation_plotter.py --threading $threading_args --reactive $reactive_args --batch-sizes $batch_args --runs $num_runs
 fi

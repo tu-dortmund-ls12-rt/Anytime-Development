@@ -78,13 +78,13 @@ rclcpp_action::GoalResponse AnytimeActionServer::handle_goal(
   const std::shared_ptr<const anytime_interfaces::action::Anytime::Goal> goal)
 {
   monte_carlo_pi_->set_goal_handle_receive_time(this->now());
-  RCLCPP_INFO(this->get_logger(), "Received goal request with number %d", goal->goal);
+  RCLCPP_DEBUG(this->get_logger(), "Received goal request with number %d", goal->goal);
   (void)uuid;  // Suppress unused variable warning
   if (monte_carlo_pi_->is_running()) {
-    RCLCPP_INFO(this->get_logger(), "Goal rejected: server is active");
+    RCLCPP_DEBUG(this->get_logger(), "Goal rejected: server is active");
     return rclcpp_action::GoalResponse::REJECT;
   }
-  RCLCPP_INFO(this->get_logger(), "Goal accepted: server is inactive");
+  RCLCPP_DEBUG(this->get_logger(), "Goal accepted: server is inactive");
   // set the monte carlo result accept time
   monte_carlo_pi_->set_goal_handle_accept_time(this->now());
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
@@ -94,7 +94,7 @@ rclcpp_action::GoalResponse AnytimeActionServer::handle_goal(
 rclcpp_action::CancelResponse AnytimeActionServer::handle_cancel(
   const std::shared_ptr<AnytimeGoalHandle> goal_handle)
 {
-  RCLCPP_INFO(this->get_logger(), "Received cancel request");
+  RCLCPP_DEBUG(this->get_logger(), "Received cancel request");
   (void)goal_handle;  // Suppress unused variable warning
 
   // Cancel the MonteCarloPi
@@ -107,15 +107,15 @@ void AnytimeActionServer::handle_accepted(const std::shared_ptr<AnytimeGoalHandl
 {
   monte_carlo_pi_->set_goal_processing_start_time(this->now());
 
-  RCLCPP_INFO(this->get_logger(), "Setting goal handle for MonteCarloPi");
+  RCLCPP_DEBUG(this->get_logger(), "Setting goal handle for MonteCarloPi");
   monte_carlo_pi_->set_goal_handle(goal_handle);
 
-  RCLCPP_INFO(this->get_logger(), "Resetting MonteCarloPi");
+  RCLCPP_DEBUG(this->get_logger(), "Resetting MonteCarloPi");
   monte_carlo_pi_->reset();
 
-  RCLCPP_INFO(this->get_logger(), "Activating MonteCarloPi");
+  RCLCPP_DEBUG(this->get_logger(), "Activating MonteCarloPi");
   monte_carlo_pi_->activate();
 
-  RCLCPP_INFO(this->get_logger(), "Start MonteCarloPi");
+  RCLCPP_DEBUG(this->get_logger(), "Start MonteCarloPi");
   monte_carlo_pi_->start();
 }

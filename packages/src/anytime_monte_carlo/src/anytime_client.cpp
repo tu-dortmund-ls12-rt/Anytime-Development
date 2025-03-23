@@ -15,12 +15,15 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
   // Declare parameters with default values
   this->declare_parameter("goal_timer_period_ms", 1000);
   this->declare_parameter("cancel_timeout_period_ms", 500);
+  this->declare_parameter("result_filename", "anytime_results");
 
   int goal_timer_period = this->get_parameter("goal_timer_period_ms").as_int();
   int cancel_timeout_period = this->get_parameter("cancel_timeout_period_ms").as_int();
+  result_filename_ = this->get_parameter("result_filename").as_string();
 
   RCLCPP_DEBUG(this->get_logger(), "Goal timer period: %d ms", goal_timer_period);
   RCLCPP_DEBUG(this->get_logger(), "Cancel timeout period: %d ms", cancel_timeout_period);
+  RCLCPP_DEBUG(this->get_logger(), "Result filename: %s", result_filename_.c_str());
 
   // Initialize the action client
   action_client_ =
@@ -126,7 +129,7 @@ void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult
       break;
     case rclcpp_action::ResultCode::CANCELED:
       // If the goal was canceled, log an error and the result after cancel
-      RCLCPP_ERROR(this->get_logger(), "Goal was canceled");
+      RCLCPP_DEBUG(this->get_logger(), "Goal was canceled");
       RCLCPP_DEBUG(this->get_logger(), "Result after cancel callback: %f", result.result->result);
       // print the number of iterations
       RCLCPP_DEBUG(this->get_logger(), "Number of iterations: %d", result.result->iterations);
@@ -209,17 +212,12 @@ void AnytimeActionClient::print_time_differences(const AnytimeGoalHandle::Wrappe
   RCLCPP_DEBUG(this->get_logger(), "iterations: %d", result.result->iterations);
   RCLCPP_DEBUG(this->get_logger(), "batch_size: %d", result.result->batch_size);
 
-  // Generate dynamic filename based on batch size and reactive/proactive state
-  std::string mode = result.result->is_reactive_proactive ? "proactive" : "reactive";
-  std::string threading = result.result->is_single_multi ? "multi" : "single";
-
   // Create results directory if it doesn't exist
   std::string results_dir = "results";
   std::filesystem::create_directories(results_dir);
 
-  std::string filename = results_dir + "/anytime_raw_timestamps_batch" + "_" +
-                         std::to_string(result.result->batch_size) + "_" + mode + "_" + threading +
-                         ".csv";
+  // Use the provided filename instead of generating one
+  std::string filename = results_dir + "/" + result_filename_ + ".csv";
 
   RCLCPP_DEBUG(this->get_logger(), "Using output file: %s", filename.c_str());
 

@@ -20,6 +20,7 @@ def include_launch_description(context: LaunchContext):
 
     goal_timer_period = LaunchConfiguration('goal_timer_period_ms')
     cancel_timeout_period = LaunchConfiguration('cancel_timeout_period_ms')
+    result_filename = LaunchConfiguration('result_filename')
 
     anytime_cmd = ComposableNodeContainer(
         name='anytime_client_component_container',
@@ -33,7 +34,8 @@ def include_launch_description(context: LaunchContext):
                 name='anytime_client',
                 parameters=[{
                     'goal_timer_period_ms': goal_timer_period,
-                    'cancel_timeout_period_ms': cancel_timeout_period
+                    'cancel_timeout_period_ms': cancel_timeout_period,
+                    'result_filename': result_filename
                 }]
             )
         ]
@@ -67,12 +69,19 @@ def generate_launch_description():
         description='Period in milliseconds for the cancel timeout timer'
     )
 
+    result_filename_arg = DeclareLaunchArgument(
+        'result_filename',
+        default_value='anytime_results',
+        description='Filename for storing results (without extension)'
+    )
+
     # Launch Description
     launch_description = LaunchDescription()
 
     launch_description.add_action(threading_type_arg)
     launch_description.add_action(goal_timer_period_arg)
     launch_description.add_action(cancel_timeout_period_arg)
+    launch_description.add_action(result_filename_arg)
 
     launch_description.add_action(OpaqueFunction(function=include_launch_description))
 

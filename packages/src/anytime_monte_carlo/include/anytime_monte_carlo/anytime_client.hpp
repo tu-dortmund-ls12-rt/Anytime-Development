@@ -33,6 +33,9 @@ private:
   // Handle for the current goal
   AnytimeGoalHandle::SharedPtr goal_handle_ = nullptr;
 
+  // Filename for storing results
+  std::string result_filename_;
+
   // Function to send a goal to the action server
   void send_goal();
 
