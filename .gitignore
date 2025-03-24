@@ -7,3 +7,7 @@ packages/log
 **/.cache
 plots
 results
+packages/src/anytime_yolo/weights_32/layer_*.onnx
+packages/src/anytime_yolo/weights_32/exit_*.onnx
+packages/src/anytime_yolo/weights_32/model.json
+packages/src/anytime_yolo/weights_32/nms.onnx
