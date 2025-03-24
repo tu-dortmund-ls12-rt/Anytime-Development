@@ -1,7 +1,7 @@
 #ifndef ANYTIME_CLIENT_HPP
 #define ANYTIME_CLIENT_HPP
 
-#include "anytime_interfaces/action/anytime.hpp"
+#include "anytime_interfaces/action/monte_carlo.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
@@ -17,12 +17,12 @@ public:
   ~AnytimeActionClient();
 
   // Type aliases for convenience
-  using Anytime = anytime_interfaces::action::Anytime;
+  using Anytime = anytime_interfaces::action::MonteCarlo;
   using AnytimeGoalHandle = rclcpp_action::ClientGoalHandle<Anytime>;
 
 private:
   // Action client for the Anytime action
-  rclcpp_action::Client<anytime_interfaces::action::Anytime>::SharedPtr action_client_;
+  rclcpp_action::Client<Anytime>::SharedPtr action_client_;
 
   // Timer for sending goals
   rclcpp::TimerBase::SharedPtr timer_ = nullptr;

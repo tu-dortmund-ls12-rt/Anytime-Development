@@ -1,4 +1,4 @@
-#include "anytime_interfaces/action/anytime.hpp"
+#include "anytime_interfaces/action/monte_carlo.hpp"
 #include "anytime_monte_carlo/monte_carlo.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -10,7 +10,7 @@ public:
   AnytimeActionServer(rclcpp::NodeOptions options);
   ~AnytimeActionServer();
 
-  using Anytime = anytime_interfaces::action::Anytime;
+  using Anytime = anytime_interfaces::action::MonteCarlo;
   using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
 private:

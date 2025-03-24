@@ -11,12 +11,10 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
   RCLCPP_INFO(this->get_logger(), "Starting Anytime action server");
 
   // Create the action server
-  action_server_ = rclcpp_action::create_server<anytime_interfaces::action::Anytime>(
+  action_server_ = rclcpp_action::create_server<Anytime>(
     this, "anytime",
     // Lambda function to handle goal requests
-    [this](
-      const rclcpp_action::GoalUUID uuid,
-      std::shared_ptr<const anytime_interfaces::action::Anytime::Goal> goal) {
+    [this](const rclcpp_action::GoalUUID uuid, std::shared_ptr<const Anytime::Goal> goal) {
       return this->handle_goal(uuid, goal);
     },
     // Lambda function to handle cancel requests
@@ -74,8 +72,7 @@ AnytimeActionServer::create_monte_carlo_pi(
 
 // Handle goal request
 rclcpp_action::GoalResponse AnytimeActionServer::handle_goal(
-  const rclcpp_action::GoalUUID & uuid,
-  const std::shared_ptr<const anytime_interfaces::action::Anytime::Goal> goal)
+  const rclcpp_action::GoalUUID & uuid, const std::shared_ptr<const Anytime::Goal> goal)
 {
   monte_carlo_pi_->set_goal_handle_receive_time(this->now());
   RCLCPP_DEBUG(this->get_logger(), "Received goal request with number %d", goal->goal);
@@ -105,8 +102,6 @@ rclcpp_action::CancelResponse AnytimeActionServer::handle_cancel(
 
 void AnytimeActionServer::handle_accepted(const std::shared_ptr<AnytimeGoalHandle> goal_handle)
 {
-  monte_carlo_pi_->set_goal_processing_start_time(this->now());
-
   RCLCPP_DEBUG(this->get_logger(), "Setting goal handle for MonteCarloPi");
   monte_carlo_pi_->set_goal_handle(goal_handle);
 
@@ -117,5 +112,6 @@ void AnytimeActionServer::handle_accepted(const std::shared_ptr<AnytimeGoalHandl
   monte_carlo_pi_->activate();
 
   RCLCPP_DEBUG(this->get_logger(), "Start MonteCarloPi");
+  monte_carlo_pi_->set_goal_processing_start_time(this->now());
   monte_carlo_pi_->start();
 }

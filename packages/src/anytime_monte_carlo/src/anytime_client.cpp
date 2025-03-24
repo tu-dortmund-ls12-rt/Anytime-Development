@@ -26,8 +26,7 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
   RCLCPP_DEBUG(this->get_logger(), "Result filename: %s", result_filename_.c_str());
 
   // Initialize the action client
-  action_client_ =
-    rclcpp_action::create_client<anytime_interfaces::action::Anytime>(this, "anytime");
+  action_client_ = rclcpp_action::create_client<Anytime>(this, "anytime");
 
   // Create a timer to send goals periodically
   timer_ = this->create_wall_timer(
@@ -49,22 +48,20 @@ void AnytimeActionClient::send_goal()
   timer_->cancel();
 
   // Create and populate the goal message
-  auto goal_msg = anytime_interfaces::action::Anytime::Goal();
+  auto goal_msg = Anytime::Goal();
   goal_msg.goal = 100000000;
   client_goal_start_time_ = this->now();
 
   // Define the goal options with callbacks
-  auto send_goal_options =
-    rclcpp_action::Client<anytime_interfaces::action::Anytime>::SendGoalOptions();
+  auto send_goal_options = rclcpp_action::Client<Anytime>::SendGoalOptions();
   send_goal_options.goal_response_callback = [this](AnytimeGoalHandle::SharedPtr goal_handle) {
     this->goal_response_callback(goal_handle);
   };
-  send_goal_options.feedback_callback =
-    [this](
-      AnytimeGoalHandle::SharedPtr goal_handle,
-      const std::shared_ptr<const anytime_interfaces::action::Anytime::Feedback> feedback) {
-      this->feedback_callback(goal_handle, feedback);
-    };
+  send_goal_options.feedback_callback = [this](
+                                          AnytimeGoalHandle::SharedPtr goal_handle,
+                                          const std::shared_ptr<const Anytime::Feedback> feedback) {
+    this->feedback_callback(goal_handle, feedback);
+  };
   send_goal_options.result_callback = [this](const AnytimeGoalHandle::WrappedResult & result) {
     this->result_callback(result);
   };
@@ -102,8 +99,7 @@ void AnytimeActionClient::goal_response_callback(AnytimeGoalHandle::SharedPtr go
 }
 
 void AnytimeActionClient::feedback_callback(
-  AnytimeGoalHandle::SharedPtr goal_handle,
-  const std::shared_ptr<const anytime_interfaces::action::Anytime::Feedback> feedback)
+  AnytimeGoalHandle::SharedPtr goal_handle, const std::shared_ptr<const Anytime::Feedback> feedback)
 {
   (void)goal_handle;
   // Log the feedback received from the action server

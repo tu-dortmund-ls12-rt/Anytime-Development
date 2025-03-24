@@ -2,13 +2,14 @@
 #define MONTE_CARLO_HPP
 
 #include "anytime_monte_carlo/anytime_base.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 
 #include <cstdint>
 #include <future>
 #include <random>
 
 // Aliases for better readability
-using Anytime = anytime_interfaces::action::Anytime;
+using Anytime = anytime_interfaces::action::MonteCarlo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
 // Monte Carlo Pi class template
@@ -134,17 +135,15 @@ public:
     // Start timing
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < batch_size_; ++i) {
-      x = (float)rand() / RAND_MAX;
-      y = (float)rand() / RAND_MAX;
+    x = (float)rand() / RAND_MAX;
+    y = (float)rand() / RAND_MAX;
 
-      if (sqrt(pow(x, 2) + pow(y, 2)) <= 1) {
-        count_inside_++;
-      }
-      count_total_++;
-
-      loop_count_++;
+    if (sqrt(pow(x, 2) + pow(y, 2)) <= 1) {
+      count_inside_++;
     }
+    count_total_++;
+
+    loop_count_++;
 
     // End timing
     auto end_time = std::chrono::high_resolution_clock::now();
