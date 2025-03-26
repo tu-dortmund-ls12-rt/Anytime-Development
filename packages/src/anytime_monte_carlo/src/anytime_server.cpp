@@ -6,7 +6,7 @@
 
 // Constructor for the AnytimeActionServer class
 AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
-: Node("anytime_action_server", options.use_intra_process_comms(true))
+: Node("anytime_action_server", options)
 {
   RCLCPP_INFO(this->get_logger(), "Starting Anytime action server");
 

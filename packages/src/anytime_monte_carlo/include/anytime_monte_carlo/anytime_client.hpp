@@ -4,14 +4,13 @@
 #include "anytime_interfaces/action/monte_carlo.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
 
 // Class definition for the Anytime Action Client
 class AnytimeActionClient : public rclcpp::Node
 {
 public:
   // Constructor
-  AnytimeActionClient(const rclcpp::NodeOptions & options);
+  AnytimeActionClient(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   // Destructor
   ~AnytimeActionClient();
@@ -78,7 +77,5 @@ private:
   std::vector<int64_t> intervals6_;
   std::vector<int64_t> iterations_;
 };
-
-RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionClient)
 
 #endif  // ANYTIME_CLIENT_HPP

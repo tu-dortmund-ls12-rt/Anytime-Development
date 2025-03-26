@@ -28,15 +28,23 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
   // Initialize the action client
   action_client_ = rclcpp_action::create_client<Anytime>(this, "anytime");
 
+  RCLCPP_INFO(this->get_logger(), "Anytime action client created");
+
   // Create a timer to send goals periodically
   timer_ = this->create_wall_timer(
     std::chrono::milliseconds(goal_timer_period), [this]() { this->send_goal(); });
+
+  RCLCPP_INFO(this->get_logger(), "Anytime action client initialized");
 
   // Create a timer for cancel timeout, initially canceled
   cancel_timeout_timer_ = this->create_wall_timer(
     std::chrono::milliseconds(cancel_timeout_period),
     [this]() { this->cancel_timeout_callback(); });
+
+  RCLCPP_INFO(this->get_logger(), "Anytime action client created");
   cancel_timeout_timer_->cancel();
+
+  RCLCPP_INFO(this->get_logger(), "Anytime action client initialized");
 }
 
 AnytimeActionClient::~AnytimeActionClient() {}

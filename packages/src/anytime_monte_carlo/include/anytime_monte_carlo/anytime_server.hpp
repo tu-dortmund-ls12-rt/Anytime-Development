@@ -2,12 +2,11 @@
 #include "anytime_monte_carlo/monte_carlo.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
 
 class AnytimeActionServer : public rclcpp::Node
 {
 public:
-  AnytimeActionServer(rclcpp::NodeOptions options);
+  AnytimeActionServer(rclcpp::NodeOptions options = rclcpp::NodeOptions());
   ~AnytimeActionServer();
 
   using Anytime = anytime_interfaces::action::MonteCarlo;
@@ -30,6 +29,4 @@ private:
     rclcpp::Node * node, bool is_reactive_proactive, bool is_single_multi, int batch_size);
 
   std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> monte_carlo_pi_;
-};
-
-RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionServer)
+};  // Added missing semicolon here

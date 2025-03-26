@@ -3,46 +3,30 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import ComposableNodeContainer
-from launch_ros.descriptions import ComposableNode
+from launch_ros.actions import Node
 from launch.launch_context import LaunchContext
 
 
 def include_launch_description(context: LaunchContext):
     """Include launch description"""
-
-    if context.launch_configurations['threading_type'] == 'single':
-        executable = 'component_container'
-    elif context.launch_configurations['threading_type'] == 'multi':
-        executable = 'component_container_mt'
-    else:
-        raise ValueError('Invalid threading type')
-
+    
     goal_timer_period = LaunchConfiguration('goal_timer_period_ms')
     cancel_timeout_period = LaunchConfiguration('cancel_timeout_period_ms')
     result_filename = LaunchConfiguration('result_filename')
 
-    anytime_cmd = ComposableNodeContainer(
-        name='anytime_client_component_container',
-        namespace='',
-        package='rclcpp_components',
-        executable=executable,
-        composable_node_descriptions=[
-            ComposableNode(
-                package='anytime_monte_carlo',
-                plugin='AnytimeActionClient',
-                name='anytime_client',
-                parameters=[{
-                    'goal_timer_period_ms': goal_timer_period,
-                    'cancel_timeout_period_ms': cancel_timeout_period,
-                    'result_filename': result_filename
-                }]
-            )
-        ]
+    anytime_cmd = Node(
+        package='anytime_monte_carlo',
+        executable='anytime_action_client',
+        name='anytime_client',
+        output='screen',
+        parameters=[{
+            'goal_timer_period_ms': goal_timer_period,
+            'cancel_timeout_period_ms': cancel_timeout_period,
+            'result_filename': result_filename
+        }]
     )
 
     cmds = []
-
     cmds.append(anytime_cmd)
 
     return cmds
