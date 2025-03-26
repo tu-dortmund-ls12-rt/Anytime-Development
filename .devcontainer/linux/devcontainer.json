@@ -1,15 +1,12 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
 	// Configure container
-	"name": "ROS2-Anytime",
+	"name": "ROS2-Anytime-Linux",
 	"build": {
 		"context": "..",
 		"dockerfile": "Dockerfile",
 		"args": {
-			"VARIANT": "jammy",
-			"INSTALL_ROS2": "true",
-			"INSTALL_ROS2_TRACING": "false",
-			"ROS_DOMAIN_ID": "0",
+			"ROS_DOMAIN_ID": "12",
 			"ROS_LOCALHOST_ONLY": "1",
 			"DISPLAY": "${localEnv:DISPLAY}"
 		}
@@ -22,9 +19,9 @@
 	// Configure runtime settings
 	"runArgs": [
 		"--network=host",
+		"--privileged",
 		"--gpus=all",
-		"--runtime=nvidia",
-		"--privileged"
+		"--runtime=nvidia"
 	],
 	"mounts": [
 		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
@@ -48,5 +45,8 @@
 				"mechatroner.rainbow-csv"
 			]
 		}
+	},
+	"containerEnv": {
+		"SHELL": "/bin/bash"
 	}
 }

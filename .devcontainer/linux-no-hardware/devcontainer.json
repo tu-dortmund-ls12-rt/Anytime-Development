@@ -1,16 +1,13 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
 	// Configure container
-	"name": "ROS2-Anytime",
+	"name": "ROS2-Anytime-Linux-No-Hardware",
 	"build": {
 		"context": "..",
 		"dockerfile": "Dockerfile",
 		"args": {
-			"VARIANT": "jammy",
-			"INSTALL_ROS2": "true",
-			"INSTALL_ROS2_TRACING": "false",
-			"ROS_DOMAIN_ID": "0",
-			"ROS_LOCALHOST_ONLY": "1",
+			"ROS_DOMAIN_ID": "12",
+			"ROS_LOCALHOST_ONLY": "0",
 			"DISPLAY": "${localEnv:DISPLAY}"
 		}
 	},
@@ -23,6 +20,9 @@
 	"runArgs": [
 		"--network=host",
 		"--privileged"
+	],
+	"mounts": [
+		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
 	],
 	// Configure VS Code extensions
 	"customizations": {
@@ -39,8 +39,12 @@
 				"ms-vscode.cpptools",
 				"ms-vscode.cpptools-extension-pack",
 				"GitHub.copilot",
-				"GitHub.copilot-chat"
+				"GitHub.copilot-chat",
+				"mechatroner.rainbow-csv"
 			]
 		}
+	},
+	"containerEnv": {
+		"SHELL": "/bin/bash"
 	}
 }
