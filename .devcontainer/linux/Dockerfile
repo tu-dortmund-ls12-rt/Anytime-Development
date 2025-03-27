@@ -117,13 +117,13 @@ RUN apt-get update && \
 
 # --- Anytime Dependencies ---
 
-RUN apt-get install -y ros-humble-ament-cmake-google-benchmark && \
-    pip install pandas "numpy<2.0" && \
+RUN pip install pandas "numpy<2.0" && \
     pip install --upgrade "numpy<2.0" matplotlib pandas
 
 # --- Yolo Dependencies ---
 
-RUN apt-get -y install nlohmann-json3-dev ros-humble-vision-msgs dos2unix
+RUN apt-get -y install nlohmann-json3-dev dos2unix libboost-python1.74-dev
+RUN pip install opencv-python
 
 # --- Set up user ---
 

@@ -131,6 +131,7 @@ RUN apt-get install -y ros-humble-ament-cmake-google-benchmark && \
 # --- Yolo Dependencies ---
 
 RUN apt-get -y install nlohmann-json3-dev ros-humble-vision-msgs dos2unix
+RUN pip install opencv-python
 
 # --- Set up user ---
 
