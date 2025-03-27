@@ -18,7 +18,7 @@ using Anytime = anytime_interfaces::action::Yolo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
 // Anytime Management class template
-template <bool isReactiveProactive, bool isSingleMulti>
+template <bool isReactiveProactive, bool isSingleMulti, bool isPassiveCooperative, bool isSyncAsync>
 class AnytimeManagement : public AnytimeBase<double, Anytime, AnytimeGoalHandle>
 {
 public:
@@ -138,17 +138,22 @@ public:
 
   void compute() override
   {
+    RCLCPP_INFO(node_->get_logger(), "Computing");
     // Start timing
     auto start_time = this->node_->now();
 
     for (int i = 0; i < batch_size_; i++) {
-      yolo_.inferStep(*yolo_state_, false);
+      RCLCPP_INFO(node_->get_logger(), "Computing batch %d", i);
+      yolo_.inferStep(*yolo_state_, true);
     }
+    RCLCPP_INFO(node_->get_logger(), "Finished computing");
 
     // End timing
     auto end_time = this->node_->now();
     // Calculate computation time for this batch
     rclcpp::Duration computation_time = end_time - start_time;
+    RCLCPP_INFO(
+      node_->get_logger(), "Computation time: %f ms", computation_time.nanoseconds() / 1e6);
 
     // Update the average computation time
     batch_count_++;
@@ -222,8 +227,6 @@ public:
     // Add additional information to result
     this->result_->batch_time = average_computation_time_;
     this->result_->batch_size = batch_size_;
-    this->result_->is_reactive_proactive = isReactiveProactive;
-    this->result_->is_single_multi = isSingleMulti;
   }
 
   // Cancel function

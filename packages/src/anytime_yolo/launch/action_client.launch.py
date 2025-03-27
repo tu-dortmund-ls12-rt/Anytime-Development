@@ -14,7 +14,7 @@ def include_launch_description(context: LaunchContext):
 
     anytime_cmd = Node(
         package='anytime_yolo',
-        executable='anytime_action_client',
+        executable='anytime_yolo_client',
         name='anytime_client',
         parameters=[{
             'cancel_timeout_period_ms': cancel_timeout_period,

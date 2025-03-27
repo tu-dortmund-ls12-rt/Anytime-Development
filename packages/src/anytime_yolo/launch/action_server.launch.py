@@ -22,7 +22,7 @@ def include_launch_description(context: LaunchContext):
 
     anytime_cmd = Node(
         package="anytime_yolo",
-        executable="anytime_action_server",
+        executable="anytime_yolo_server",
         name="anytime_server",
         parameters=[{
             "is_reactive_proactive": is_reactive_proactive,

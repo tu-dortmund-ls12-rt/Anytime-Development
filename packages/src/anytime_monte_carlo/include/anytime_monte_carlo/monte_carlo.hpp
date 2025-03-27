@@ -171,8 +171,6 @@ public:
 
     // Add additional information to result
     this->result_->batch_size = batch_size_;
-    this->result_->is_reactive_proactive = isReactiveProactive;
-    this->result_->is_single_multi = isSingleMulti;
   }
 
   // Cancel function
