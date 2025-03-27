@@ -41,8 +41,8 @@ done
 
 source packages/install/setup.bash
 
-declare -a threading_types=("False" "True")
-declare -a anytime_reactives=("False" "True")
+declare -a is_single_multi=("False" "True")
+declare -a is_reactive_proactive=("False" "True")
 declare -a batch_sizes=(1 16 256 4096 65536 1048576)
 
 # Create the results and plots directories
@@ -53,8 +53,8 @@ mkdir -p plots/monte_carlo
 if [[ "$mode" == "run" || "$mode" == "both" ]]; then
     echo "Running experiments with $num_runs runs per configuration..."
     for batch_size in "${batch_sizes[@]}"; do
-        for threading in "${threading_types[@]}"; do
-            for isReactiveProactive in "${anytime_reactives[@]}"; do
+        for threading in "${is_single_multi[@]}"; do
+            for isReactiveProactive in "${is_reactive_proactive[@]}"; do
                 for run in $(seq 1 $num_runs); do
                     
                     # Map reactive parameter value
@@ -106,7 +106,7 @@ if [[ "$mode" == "plot" || "$mode" == "both" ]]; then
     
     # Prepare threading arguments
     threading_args=""
-    for threading in "${threading_types[@]}"; do
+    for threading in "${is_single_multi[@]}"; do
         # Map threading parameter value
         if [ "$threading" = "True" ]; then
             threading_args="$threading_args multi"
@@ -117,7 +117,7 @@ if [[ "$mode" == "plot" || "$mode" == "both" ]]; then
     
     # Prepare reactive arguments
     reactive_args=""
-    for isReactiveProactive in "${anytime_reactives[@]}"; do
+    for isReactiveProactive in "${is_reactive_proactive[@]}"; do
         # Map reactive parameter value
         if [ "$isReactiveProactive" = "True" ]; then
             reactive_args="$reactive_args proactive"

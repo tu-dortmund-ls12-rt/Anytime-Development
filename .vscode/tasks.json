@@ -84,7 +84,7 @@
         {
             "label": "ROS2-Yolo-Server",
             "type": "shell",
-            "command": "source ${workspaceFolder}/packages/install/setup.bash && ros2 launch anytime_yolo action_server.launch.py is_reactive_proactive:=${input:is_reactive_proactive} multi_threading:=${input:multi_threading} batch_size:=${input:batch_size}",
+            "command": "source ${workspaceFolder}/packages/install/setup.bash && ros2 launch anytime_yolo action_server.launch.py is_reactive_proactive:=${input:is_reactive_proactive} multi_threading:=${input:multi_threading} batch_size:=${input:batch_size} is_passive_cooperative:=${input:is_passive_cooperative} is_sync_async:=${input:is_sync_async}",
             "problemMatcher": [],
             "presentation": {
                 "echo": true,
@@ -136,6 +136,26 @@
             "type": "promptString",
             "description": "Enter the batch size parameter",
             "default": "1"
+        },
+        {
+            "id": "is_passive_cooperative",
+            "type": "pickString",
+            "description": "Select the is_passive_cooperative parameter",
+            "options": [
+                "passive",
+                "cooperative"
+            ],
+            "default": "passive"
+        },
+        {
+            "id": "is_sync_async",
+            "type": "pickString",
+            "description": "Select the is_sync_async parameter",
+            "options": [
+                "sync",
+                "async"
+            ],
+            "default": "sync"
         }
     ]
 }

@@ -11,6 +11,8 @@ def include_launch_description(context: LaunchContext):
     """Include launch description"""
     is_reactive_proactive = LaunchConfiguration("is_reactive_proactive")
     batch_size = LaunchConfiguration("batch_size")
+    is_passive_cooperative = LaunchConfiguration("is_passive_cooperative")
+    is_sync_async = LaunchConfiguration("is_sync_async")
     
     # Determine the threading mode from launch context
     if context.launch_configurations["multi_threading"].lower() == "false":
@@ -28,7 +30,9 @@ def include_launch_description(context: LaunchContext):
             "is_reactive_proactive": is_reactive_proactive,
             "batch_size": batch_size,
             "is_single_multi": is_single_multi,
-            "weights_path": context.launch_configurations["weights_path"]
+            "weights_path": context.launch_configurations["weights_path"],
+            "is_passive_cooperative": is_passive_cooperative,
+            "is_sync_async": is_sync_async
         }],
         arguments=["--is_single_multi", is_single_multi]
     )
@@ -68,6 +72,16 @@ def generate_launch_description():
         description="Path to the anytimeyolo weights directory"
     )
 
+    passive_cooperative_arg = DeclareLaunchArgument(
+        "is_passive_cooperative", default_value="passive", 
+        description="Passive or cooperative mode"
+    )
+
+    sync_async_arg = DeclareLaunchArgument(
+        "is_sync_async", default_value="sync",
+        description="Synchronous or asynchronous mode"
+    )
+
     # Launch Description
     launch_description = LaunchDescription()
 
@@ -75,6 +89,8 @@ def generate_launch_description():
     launch_description.add_action(anytime_reactive_proactive_arg)
     launch_description.add_action(batch_size_arg)
     launch_description.add_action(weights_path_arg)
+    launch_description.add_action(passive_cooperative_arg)
+    launch_description.add_action(sync_async_arg)
 
     launch_description.add_action(OpaqueFunction(
         function=include_launch_description))

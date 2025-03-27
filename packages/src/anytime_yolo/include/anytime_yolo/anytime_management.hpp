@@ -139,14 +139,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Computing");
     // Start timing
     auto start_time = this->node_->now();
+    // Determine synchronicity before the loop
+    constexpr bool is_sync_async = isSyncAsync;
+
+    void (*callback)(void *) = isPassiveCooperative ? forward_finished_callback : nullptr;
 
     for (int i = 0; i < batch_size_; i++) {
       RCLCPP_INFO(node_->get_logger(), "Computing batch %d", i);
-      if constexpr (isSyncAsync) {
-        yolo_.inferStep(*yolo_state_, true, forward_finished_callback, this);
-      } else {
-        yolo_.inferStep(*yolo_state_, false, forward_finished_callback, this);
-      }
+      yolo_.inferStep(*yolo_state_, is_sync_async, callback, this);
     }
     RCLCPP_INFO(node_->get_logger(), "Finished computing");
 
