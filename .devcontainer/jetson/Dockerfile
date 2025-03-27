@@ -129,7 +129,7 @@ RUN pip install pandas "numpy<2.0" && \
 
 # --- Yolo Dependencies ---
 
-RUN apt-get -y install nlohmann-json3-dev dos2unix
+RUN apt-get -y install nlohmann-json3-dev dos2unix libboost-python1.74-dev
 RUN pip install opencv-python
 
 # --- Set up user ---
@@ -138,32 +138,52 @@ ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-# Create the user
+# Install bash completion and other helpful tools
+RUN apt-get update && apt-get install -y \
+    sudo \
+    bash-completion \
+    vim \
+    wget \
+    iputils-ping \
+    net-tools
+
+# Create the user with proper shell and environment
 RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    #
-    # [Optional] Add sudo support. Omit if you don't need to install software after connecting.
-    && apt-get update \
-    && apt-get install -y sudo \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
+    # Add sudo support
     && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
-    #
-    # Fix permissions for vscode user's home directory
+    # Copy skeleton files for bash configuration
+    && cp -r /etc/skel/. /home/$USERNAME/ \
+    # Create proper .bashrc if it doesn't exist or is empty
+    && if [ ! -s /home/$USERNAME/.bashrc ]; then \
+    echo '# ~/.bashrc: executed by bash(1) for non-login shells.' > /home/$USERNAME/.bashrc && \
+    echo 'case $- in' >> /home/$USERNAME/.bashrc && \
+    echo '    *i*) ;;' >> /home/$USERNAME/.bashrc && \
+    echo '      *) return;;' >> /home/$USERNAME/.bashrc && \
+    echo 'esac' >> /home/$USERNAME/.bashrc && \
+    echo 'export PATH=$HOME/.local/bin:$PATH' >> /home/$USERNAME/.bashrc && \
+    echo 'if [ -f /etc/bash_completion ] && ! shopt -oq posix; then' >> /home/$USERNAME/.bashrc && \
+    echo '    . /etc/bash_completion' >> /home/$USERNAME/.bashrc && \
+    echo 'fi' >> /home/$USERNAME/.bashrc; \
+    fi \
+    # Set proper ownership
     && chown -R $USERNAME:$USERNAME /home/$USERNAME
 
-# [Optional] Set the default user. Omit if you want to keep the default as root.
+# Set the default user
 USER $USERNAME
 
-# add user to video group
-RUN sudo usermod -a -G video vscode && \
+# Add user to necessary groups
+RUN sudo usermod -a -G video $USERNAME && \
     sudo groupadd -f -r tracing && \
-    sudo usermod -a -G tracing vscode
+    sudo usermod -a -G tracing $USERNAME
 
-# source ROS2 setup file and workspace
-RUN echo '. /home/vscode/ros2_humble/install/setup.sh' >> /home/vscode/.bashrc && \
-    echo '. /home/vscode/ros2_tracing_ws/install/setup.sh' >> /home/vscode/.bashrc
-#  && \
-# echo '. /home/vscode/ros2_realsense_ws/install/setup.sh' >> /home/vscode/.bashrc
+# Configure ROS2 environment - use separate command for each line
+RUN echo "" >> /home/$USERNAME/.bashrc && \
+    echo "# ROS2 Environment Setup" >> /home/$USERNAME/.bashrc && \
+    echo ". /home/vscode/ros2_humble/install/setup.sh" >> /home/$USERNAME/.bashrc && \
+    echo ". /home/vscode/ros2_tracing_ws/install/setup.sh" >> /home/$USERNAME/.bashrc
+#    && echo ". /home/vscode/ros2_realsense_ws/install/setup.sh" >> /home/$USERNAME/.bashrc
 
 # configure environment variables
 ARG DISPLAY
