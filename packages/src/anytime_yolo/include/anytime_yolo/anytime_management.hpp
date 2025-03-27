@@ -18,7 +18,7 @@ using Anytime = anytime_interfaces::action::Yolo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
 // Anytime Management class template
-template <bool isReactiveProactive, bool isSingleMulti>
+template <bool isReactiveProactive, bool isSingleMulti, bool isPassiveCooperative, bool isSyncAsync>
 class AnytimeManagement : public AnytimeBase<double, Anytime, AnytimeGoalHandle>
 {
 public:
@@ -59,18 +59,7 @@ public:
       return;
     } else {
       compute();
-      notify_iteration();
-    }
-  }
-
-  void reactive_function_loop()
-  {
-    while (true) {
-      if (check_cancel_and_finish_reactive()) {
-        return;
-      } else {
-        compute();
-      }
+      // notify_iteration();
     }
   }
 
@@ -136,19 +125,37 @@ public:
 
   void start() override { notify_iteration(); }
 
+  // Change to static method for CUDA callback compatibility
+  static void CUDART_CB forward_finished_callback(void * userData)
+  {
+    // Notify the waitable
+    auto this_ptr = static_cast<AnytimeManagement *>(userData);
+    RCLCPP_INFO(this_ptr->node_->get_logger(), "Notifying iteration");
+    this_ptr->notify_iteration();
+  }
+
   void compute() override
   {
+    RCLCPP_INFO(node_->get_logger(), "Computing");
     // Start timing
     auto start_time = this->node_->now();
 
     for (int i = 0; i < batch_size_; i++) {
-      yolo_.inferStep(*yolo_state_, false);
+      RCLCPP_INFO(node_->get_logger(), "Computing batch %d", i);
+      if constexpr (isSyncAsync) {
+        yolo_.inferStep(*yolo_state_, true, forward_finished_callback, this);
+      } else {
+        yolo_.inferStep(*yolo_state_, false, forward_finished_callback, this);
+      }
     }
+    RCLCPP_INFO(node_->get_logger(), "Finished computing");
 
     // End timing
     auto end_time = this->node_->now();
     // Calculate computation time for this batch
     rclcpp::Duration computation_time = end_time - start_time;
+    RCLCPP_INFO(
+      node_->get_logger(), "Computation time: %f ms", computation_time.nanoseconds() / 1e6);
 
     // Update the average computation time
     batch_count_++;
@@ -222,8 +229,6 @@ public:
     // Add additional information to result
     this->result_->batch_time = average_computation_time_;
     this->result_->batch_size = batch_size_;
-    this->result_->is_reactive_proactive = isReactiveProactive;
-    this->result_->is_single_multi = isSingleMulti;
   }
 
   // Cancel function

@@ -163,6 +163,7 @@ void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult
       break;
   }
   current_image_.reset();
+  rclcpp::shutdown();
 }
 
 void AnytimeActionClient::post_processing(const AnytimeGoalHandle::WrappedResult & result)

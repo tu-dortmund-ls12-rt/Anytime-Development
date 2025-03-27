@@ -1,5 +1,3 @@
-"""Single car omnet module launch file"""
-
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
@@ -16,7 +14,7 @@ def include_launch_description(context: LaunchContext):
 
     anytime_cmd = Node(
         package='anytime_monte_carlo',
-        executable='anytime_action_client',
+        executable='anytime_mc_client',
         name='anytime_client',
         output='screen',
         parameters=[{

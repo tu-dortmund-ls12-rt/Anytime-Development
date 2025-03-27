@@ -2,7 +2,6 @@
 #include "anytime_yolo/anytime_management.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
-#include "rclcpp_components/register_node_macro.hpp"
 
 class AnytimeActionServer : public rclcpp::Node
 {
@@ -27,10 +26,9 @@ private:
 
   // factory function for monte carlo pi
   std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> create_anytime_management(
-    rclcpp::Node * node, bool is_reactive_proactive, bool is_single_multi, int batch_size,
+    rclcpp::Node * node, bool is_reactive_proactive, bool is_single_multi,
+    bool is_passive_cooperative, bool is_sync_async, int batch_size,
     const std::string & weights_path);
 
   std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> anytime_management_;
 };
-
-RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionServer)

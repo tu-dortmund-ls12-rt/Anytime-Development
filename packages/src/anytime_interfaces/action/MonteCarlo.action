@@ -2,8 +2,6 @@ int32 goal
 ---
 float32 result
 int32 iterations
-bool is_reactive_proactive
-bool is_single_multi
 int32 batch_size
 builtin_interfaces/Duration batch_time
 builtin_interfaces/Time action_server_receive

@@ -29,7 +29,6 @@ find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp_action REQUIRED)
-find_package(rclcpp_components REQUIRED)
 find_package(anytime_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(CUDA REQUIRED)
@@ -42,81 +41,56 @@ set(TENSORRT_LIB_DIR /usr/lib/x86_64-linux-gnu)
 
 include_directories(${TENSORRT_INCLUDE_DIR})
 link_directories(${TENSORRT_LIB_DIR})
-
-# Include Cpp "include" directory
 include_directories(include /usr/include/${ARCHITECTURE}-linux-gnu ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
-set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "rclcpp_components" "sensor_msgs" "cv_bridge")
+set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "sensor_msgs" "cv_bridge")
 
 # Add libraries
-add_library(anytime_client SHARED src/anytime_client.cpp)
-add_library(anytime_server SHARED src/anytime_server.cpp)
+add_library(anytime_yolo_client_lib SHARED src/anytime_client.cpp)
+add_library(anytime_yolo_server_lib SHARED src/anytime_server.cpp)
 
 # Include directories
-target_include_directories(anytime_client PUBLIC
+target_include_directories(anytime_yolo_client_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_include_directories(anytime_server PUBLIC
+target_include_directories(anytime_yolo_server_lib PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_link_libraries(anytime_server 
+target_link_libraries(anytime_yolo_server_lib 
   nvinfer
   nvonnxparser
   ${CUDA_LIBRARIES}
   ${OpenCV_LIBS}
 )
 
-
 # Link dependencies
-ament_target_dependencies(anytime_client ${anytime_dependencies})
-ament_target_dependencies(anytime_server ${anytime_dependencies})
+ament_target_dependencies(anytime_yolo_client_lib ${anytime_dependencies})
+ament_target_dependencies(anytime_yolo_server_lib ${anytime_dependencies})
 
-# Register nodes
-rclcpp_components_register_node(anytime_client PLUGIN "AnytimeActionClient" EXECUTABLE anytime_action_client)
-rclcpp_components_register_node(anytime_server PLUGIN "AnytimeActionServer" EXECUTABLE anytime_action_server)
+# Create executables from main files
+add_executable(anytime_yolo_client src/anytime_client_main.cpp)
+add_executable(anytime_yolo_server src/anytime_server_main.cpp)
+
+# Link executables with their respective libraries
+target_link_libraries(anytime_yolo_client anytime_yolo_client_lib)
+target_link_libraries(anytime_yolo_server anytime_yolo_server_lib)
 
 # Install targets
 install(TARGETS
-  anytime_client
-  anytime_server
+  anytime_yolo_client_lib
+  anytime_yolo_server_lib
+  anytime_yolo_client
+  anytime_yolo_server
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
-
-# # Add libraries
-# add_library(anytime_node SHARED src/anytime_node.cpp)
-
-# # Create Cpp executable
-# add_executable(anytime src/anytime_main.cpp)
-
-# set(anytime_dependencies rclcpp )
-# ament_target_dependencies(anytime_node ${anytime_dependencies})
-
-# # Link libraries
-# target_link_libraries(anytime anytime_node)
 
 install(DIRECTORY
   launch
   weights_32
   DESTINATION share/${PROJECT_NAME}
 )
-
-# # Install Cpp executables
-# install(TARGETS
-#   anytime
-#   DESTINATION lib/${PROJECT_NAME}
-# )
-
-# install(TARGETS 
-#   anytime_node
-#   ARCHIVE DESTINATION lib
-#   LIBRARY DESTINATION lib
-#   RUNTIME DESTINATION bin
-# )
-
-# # Install Python modules
-# ament_python_install_package(${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

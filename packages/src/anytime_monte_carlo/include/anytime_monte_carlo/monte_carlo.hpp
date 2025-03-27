@@ -57,17 +57,6 @@ public:
     }
   }
 
-  void reactive_function_loop()
-  {
-    while (true) {
-      if (check_cancel_and_finish_reactive()) {
-        return;
-      } else {
-        compute();
-      }
-    }
-  }
-
   bool check_cancel_and_finish_reactive() override
   {
     bool should_finish = loop_count_ >= this->goal_handle_->get_goal()->goal;
@@ -171,8 +160,6 @@ public:
 
     // Add additional information to result
     this->result_->batch_size = batch_size_;
-    this->result_->is_reactive_proactive = isReactiveProactive;
-    this->result_->is_single_multi = isSingleMulti;
   }
 
   // Cancel function
