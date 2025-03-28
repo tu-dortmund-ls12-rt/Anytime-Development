@@ -193,10 +193,10 @@ void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult
 
 void AnytimeActionClient::post_processing(const AnytimeGoalHandle::WrappedResult & result)
 {
-  // print time between start and receive
+  // print time between start and receive in milliseconds
   RCLCPP_INFO(
-    this->get_logger(), "Time between start and receive: %ld",
-    (client_result_time_ - client_goal_start_time_).nanoseconds());
+    this->get_logger(), "Time between start and receive: %ld ms",
+    (client_result_time_ - client_goal_start_time_).nanoseconds() / 1000000);
   RCLCPP_INFO(this->get_logger(), "Publishing detection image");
   detection_image_publisher_->publish(*current_image_);
 
