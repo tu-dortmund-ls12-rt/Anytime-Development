@@ -78,7 +78,7 @@ rclcpp_action::GoalResponse AnytimeActionServer::handle_goal(
   RCLCPP_DEBUG(this->get_logger(), "Received goal request with number %d", goal->goal);
   (void)uuid;  // Suppress unused variable warning
   if (monte_carlo_pi_->is_running()) {
-    RCLCPP_DEBUG(this->get_logger(), "Goal rejected: server is active");
+    RCLCPP_ERROR(this->get_logger(), "Goal rejected: server is active");
     return rclcpp_action::GoalResponse::REJECT;
   }
   RCLCPP_DEBUG(this->get_logger(), "Goal accepted: server is inactive");
