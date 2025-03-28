@@ -896,7 +896,6 @@ private:
 
     if (loadEngine(enginePath, runtime, nmsEngine)) {
       std::cout << "Successfully loaded cached NMS engine from: " << enginePath << std::endl;
-      return true;
     } else {
       std::cerr << "Failed to load cached NMS engine, falling back to build" << std::endl;
       buildOnnxEngine(weightsPath, enginePath);
