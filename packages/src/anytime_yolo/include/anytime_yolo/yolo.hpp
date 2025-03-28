@@ -613,7 +613,6 @@ public:
     std::vector<std::pair<std::string, void *>> outputs = {
       {bindingInfo.outputNames[0], nmsOutputBuffer.getDevicePtr()}};
 
-    auto nmsContext = std::unique_ptr<IExecutionContext>(nmsEngine->createExecutionContext());
     // Execute NMS
     if (!executeEngine(nmsContext.get(), inputs, outputs, stream)) {
       std::cerr << "NMS execution failed" << std::endl;
@@ -883,6 +882,8 @@ private:
   std::vector<AnytimeYOLOChunk> chunks;
   std::vector<AnytimeYOLOChunk> exits;
 
+  std::unique_ptr<IExecutionContext> nmsContext;
+
   std::unique_ptr<ICudaEngine> nmsEngine;
 
   cudaStream_t stream;
@@ -904,6 +905,8 @@ private:
       if (!loadEngine(enginePath, runtime, nmsEngine)) {
         throw std::runtime_error("Failed to load NMS engine");
       }
+    }
+    nmsContext = std::unique_ptr<IExecutionContext>(nmsEngine->createExecutionContext());
       return true;
     }
   }
