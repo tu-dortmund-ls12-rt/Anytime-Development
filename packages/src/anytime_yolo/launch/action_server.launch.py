@@ -13,7 +13,7 @@ def include_launch_description(context: LaunchContext):
     batch_size = LaunchConfiguration("batch_size")
     is_passive_cooperative = LaunchConfiguration("is_passive_cooperative")
     is_sync_async = LaunchConfiguration("is_sync_async")
-    
+
     # Determine the threading mode from launch context
     if context.launch_configurations["multi_threading"].lower() == "false":
         is_single_multi = "single"
@@ -73,7 +73,7 @@ def generate_launch_description():
     )
 
     passive_cooperative_arg = DeclareLaunchArgument(
-        "is_passive_cooperative", default_value="passive", 
+        "is_passive_cooperative", default_value="passive",
         description="Passive or cooperative mode"
     )
 
