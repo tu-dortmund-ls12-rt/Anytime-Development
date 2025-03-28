@@ -13,19 +13,28 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 : Node("anytime_action_client", options)
 {
   RCLCPP_INFO(this->get_logger(), "Starting Anytime action client");
+  // Initialize is_cancelling_ to false
+  is_cancelling_ = false;
 
   // Declare parameters with default values
-  this->declare_parameter("cancel_timeout_period_ms", 500);
   this->declare_parameter("result_filename", "anytime_results");
   this->declare_parameter("image_topic", "video_frames");
+  this->declare_parameter("cancel_after_layers", 10);
 
-  int cancel_timeout_period = this->get_parameter("cancel_timeout_period_ms").as_int();
   result_filename_ = this->get_parameter("result_filename").as_string();
   std::string image_topic = this->get_parameter("image_topic").as_string();
+  cancel_after_layers_ = this->get_parameter("cancel_after_layers").as_int();
 
-  RCLCPP_INFO(this->get_logger(), "Cancel timeout period: %d ms", cancel_timeout_period);
   RCLCPP_INFO(this->get_logger(), "Result filename: %s", result_filename_.c_str());
   RCLCPP_INFO(this->get_logger(), "Image topic: %s", image_topic.c_str());
+  RCLCPP_INFO(this->get_logger(), "Cancel after layers: %d", cancel_after_layers_);
+
+  // Initialize the cancel waitable
+  cancel_waitable_ = std::make_shared<AnytimeWaitable>([this]() { this->cancel_callback(); });
+
+  // Add the waitable to the node's waitables interface
+  this->get_node_waitables_interface()->add_waitable(
+    cancel_waitable_, this->get_node_base_interface()->get_default_callback_group());
 
   // Initialize the image subscription
   image_subscription_ = this->create_subscription<sensor_msgs::msg::Image>(
@@ -34,12 +43,6 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 
   // Initialize the detection image publisher
   detection_image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("images", 10);
-
-  // Create a timer for cancel timeout, initially canceled
-  cancel_timeout_timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(cancel_timeout_period),
-    [this]() { this->cancel_timeout_callback(); });
-  cancel_timeout_timer_->cancel();
 
   // Initialize the action client
   action_client_ = rclcpp_action::create_client<Anytime>(this, "anytime");
@@ -108,38 +111,58 @@ void AnytimeActionClient::goal_response_callback(AnytimeGoalHandle::SharedPtr go
   // Store the goal handle for future reference
   goal_handle_ = goal_handle;
 
-  // Reset the cancel timeout timer to start counting down
-  cancel_timeout_timer_->reset();
+  RCLCPP_INFO(this->get_logger(), "Goal accepted by server");
 }
 
 void AnytimeActionClient::feedback_callback(
   AnytimeGoalHandle::SharedPtr goal_handle, const std::shared_ptr<const Anytime::Feedback> feedback)
 {
-  (void)goal_handle;
+  if (!goal_handle) {
+    RCLCPP_ERROR(this->get_logger(), "Feedback received for unknown goal handle");
+    return;
+  }
   // Log the feedback message
   RCLCPP_INFO(this->get_logger(), "Feedback received");
   RCLCPP_INFO(this->get_logger(), "Processed layers: %d", feedback->processed_layers);
+  if (feedback->processed_layers >= cancel_after_layers_ && !is_cancelling_) {
+    RCLCPP_INFO(this->get_logger(), "Notifying cancel waitable");
+    cancel_waitable_->notify();
+  }
 }
 
-void AnytimeActionClient::cancel_timeout_callback()
+void AnytimeActionClient::cancel_callback()
 {
-  RCLCPP_INFO(this->get_logger(), "Timeout reached, canceling goal");
+  if (is_cancelling_ || !goal_handle_) {
+    return;
+  }
 
-  // Cancel the timeout timer to prevent multiple cancel requests
-  cancel_timeout_timer_->cancel();
+  RCLCPP_INFO(this->get_logger(), "Cancel waitable triggered, cancelling goal");
+  // Set the cancellation flag to true to prevent multiple cancellations
+  is_cancelling_ = true;
 
   client_send_cancel_start_time_ = this->now();
-  // Send a cancel request for the current goal
-  action_client_->async_cancel_goal(goal_handle_);
-  client_send_cancel_end_time_ = this->now();
 
+  // Send a cancel request for the current goal
+  action_client_->async_cancel_goal(
+    goal_handle_, [this](std::shared_ptr<action_msgs::srv::CancelGoal_Response> cancel_response) {
+      this->cancel_response_callback(cancel_response);
+    });
+
+  client_send_cancel_end_time_ = this->now();
   RCLCPP_INFO(this->get_logger(), "Cancel request sent");
+}
+
+void AnytimeActionClient::cancel_response_callback(
+  const std::shared_ptr<action_msgs::srv::CancelGoal_Response> & cancel_response)
+{
+  (void)cancel_response;
+  RCLCPP_INFO(this->get_logger(), "Cancel request accepted by server");
 }
 
 void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult & result)
 {
   client_result_time_ = this->now();
-  cancel_timeout_timer_->cancel();
+
   // Log the result based on the result code
   switch (result.code) {
     case rclcpp_action::ResultCode::SUCCEEDED:
@@ -164,6 +187,8 @@ void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult
       break;
   }
   current_image_.reset();
+  // Reset the cancellation flag when we receive a result
+  is_cancelling_ = false;
 }
 
 void AnytimeActionClient::post_processing(const AnytimeGoalHandle::WrappedResult & result)

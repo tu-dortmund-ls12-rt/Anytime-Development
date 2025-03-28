@@ -2,6 +2,7 @@
 #define ANYTIME_CLIENT_HPP
 
 #include "anytime_interfaces/action/yolo.hpp"
+#include "anytime_yolo/anytime_waitable.hpp"  // Added include for AnytimeWaitable
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
@@ -35,6 +36,9 @@ private:
   // Publisher for detection results
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detection_publisher_;
 
+  // AnytimeWaitable for cancel requests
+  std::shared_ptr<AnytimeWaitable> cancel_waitable_;
+
   // Current image buffer
   sensor_msgs::msg::Image::SharedPtr current_image_;
 
@@ -50,6 +54,12 @@ private:
   // Filename for storing results
   std::string result_filename_;
 
+  // Flag to track if a cancel request is in progress
+  bool is_cancelling_ = false;
+
+  // Number of layers to process before canceling
+  int cancel_after_layers_;
+
   // Function to send a goal to the action server
   void send_goal(const Anytime::Goal & goal_msg);
 
@@ -63,8 +73,15 @@ private:
   // Callback for result from the action server
   void result_callback(const AnytimeGoalHandle::WrappedResult & result);
 
+  // Callback for cancel receive
+  void cancel_response_callback(
+    const std::shared_ptr<action_msgs::srv::CancelGoal_Response> & cancel_response);
+
   // Callback for cancel timeout
-  void cancel_timeout_callback();
+  void cancel_timeout_callback(AnytimeGoalHandle::SharedPtr goal_handle);
+
+  // Callback for cancel waitable
+  void cancel_callback();
 
   // Function to print time differences between action result timestamps
   void print_time_differences(const AnytimeGoalHandle::WrappedResult & result);

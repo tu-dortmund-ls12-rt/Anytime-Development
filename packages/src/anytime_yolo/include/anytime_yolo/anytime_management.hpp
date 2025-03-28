@@ -214,7 +214,6 @@ public:
 
   void calculate_result() override
   {
-    this->result_ = std::make_shared<Anytime::Result>();
     RCLCPP_INFO(node_->get_logger(), "Calculating result");
     std::vector<float> yolo_result;
     if constexpr (isReactiveProactive) {
