@@ -11,3 +11,5 @@ packages/src/anytime_yolo/weights_32/layer_*.onnx
 packages/src/anytime_yolo/weights_32/exit_*.onnx
 packages/src/anytime_yolo/weights_32/model.json
 packages/src/anytime_yolo/weights_32/nms.onnx
+packages/src/anytime_yolo/weights_32/combine_subheads_*.onnx
+packages/src/anytime_yolo/weights_32/subexit_*.onnx
