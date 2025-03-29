@@ -20,7 +20,8 @@ def include_launch_description(context: LaunchContext):
             'result_filename': result_filename,
             'image_topic': image_topic,
             'cancel_after_layers': cancel_after_layers
-        }]
+        }],
+        output='screen',
     )
 
     cmds = []

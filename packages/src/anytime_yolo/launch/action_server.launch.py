@@ -34,7 +34,8 @@ def include_launch_description(context: LaunchContext):
             "is_passive_cooperative": is_passive_cooperative,
             "is_sync_async": is_sync_async
         }],
-        arguments=["--is_single_multi", is_single_multi]
+        arguments=["--is_single_multi", is_single_multi],
+        output='screen',
     )
 
     cmds = []
