@@ -73,7 +73,7 @@ def generate_launch_description():
     )
 
     passive_cooperative_arg = DeclareLaunchArgument(
-        "is_passive_cooperative", default_value="passive",
+        "is_passive_cooperative", default_value="cooperative",
         description="Passive or cooperative mode"
     )
 
