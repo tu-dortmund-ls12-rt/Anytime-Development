@@ -85,7 +85,7 @@ if [[ "$mode" == "run" || "$mode" == "both" ]]; then
                     ros2 launch anytime_monte_carlo action_client.launch.py threading_type:=single result_filename:="${result_filename}" > "./results/monte_carlo/${config_name}_client.log" & client_pid=$!
                     
                     # Wait for 60 seconds
-                    sleep 180
+                    sleep 60
 
                     # Terminate both processes after 60 seconds
                     kill $server_pid 2>/dev/null
