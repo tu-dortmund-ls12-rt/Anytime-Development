@@ -19,6 +19,8 @@
 using Anytime = anytime_interfaces::action::Yolo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
+bool f16 = false;  // Flag for half precision
+
 // Anytime Management class template
 template <bool isReactiveProactive, bool isSingleMulti, bool isPassiveCooperative, bool isSyncAsync>
 class AnytimeManagement : public AnytimeBase<double, Anytime, AnytimeGoalHandle>
@@ -26,7 +28,12 @@ class AnytimeManagement : public AnytimeBase<double, Anytime, AnytimeGoalHandle>
 public:
   // Constructor
   AnytimeManagement(rclcpp::Node * node, int batch_size = 1, const std::string & weights_path = "")
-  : node_(node), batch_size_(batch_size), weights_path_(weights_path), yolo_(weights_path, false)
+  : node_(node),
+    batch_size_(batch_size),
+    weights_path_(weights_path),
+    yolo_(weights_path, false),
+    yolo_state_(std::make_unique<InferenceState>(yolo_.createInferenceState())),
+    input_cuda_buffer_(640 * 640 * 3 * (f16 ? sizeof(__half) : sizeof(float)))
   {
     // callback group
     compute_callback_group_ =
@@ -359,8 +366,6 @@ public:
   {
     this->result_ = std::make_shared<Anytime::Result>();
 
-    input_cuda_buffer_.free();
-
     // Process image data from the goal handle
     if (this->goal_handle_) {
       const auto & goal = this->goal_handle_->get_goal();
@@ -380,47 +385,38 @@ public:
       // Get the OpenCV image
       cv::Mat img = cv_ptr->image;
 
-      // Resize to 640x640
-      cv::Mat resized_img;
-      cv::resize(img, resized_img, cv::Size(640, 640));
+      cv::Mat blob = cv::dnn::blobFromImage(
+        img,                  // input image
+        1.0 / 255.0,          // scale factor (normalization)
+        cv::Size(640, 640),   // output size
+        cv::Scalar(0, 0, 0),  // mean subtraction (none here)
+        true,                 // swapRB - converts BGR to RGB
+        false                 // crop - no cropping
+      );
 
-      // Convert BGR to RGB
-      cv::cvtColor(resized_img, resized_img, cv::COLOR_BGR2RGB);
-
-      // Normalize to [0,1]
-      cv::Mat float_img;
-      resized_img.convertTo(float_img, CV_32FC3, 1.0f / 255.0f);
-
-      // Convert to NCHW format
-      std::vector<float> nchw_data;
-      const int channels = 3;
-      const int height = 640;
-      const int width = 640;
-      nchw_data.resize(channels * height * width);
-
-      for (int c = 0; c < channels; ++c) {
-        for (int h = 0; h < height; ++h) {
-          for (int w = 0; w < width; ++w) {
-            nchw_data[c * height * width + h * width + w] = float_img.at<cv::Vec3f>(h, w)[c];
-          }
-        }
+      if (halfPrecision) {
+        blob.convertTo(blob, CV_16F);  // Convert to half precision
+      } else {
+        blob.convertTo(blob, CV_32F);  // Convert to float
       }
 
-      // Allocate CUDA buffer and copy data
-      const size_t data_size = nchw_data.size() * sizeof(float);
-      if (!input_cuda_buffer_.allocate(data_size)) {
-        RCLCPP_ERROR(node_->get_logger(), "Failed to allocate CUDA buffer");
-        return;
-      }
+      const size_t data_size =
+        blob.total() * blob.elemSize();  // Total number of elements * size of each element
 
-      if (!input_cuda_buffer_.copyFromHost(nchw_data.data(), data_size)) {
-        RCLCPP_ERROR(node_->get_logger(), "Failed to copy data to CUDA buffer");
-        return;
+      // check if the buffer is large enough
+      if (data_size > input_cuda_buffer_.size) {
+        std::cerr << "Buffer size is not large enough" << std::endl;
+        throw std::runtime_error("Buffer size is not large enough");
+      }
+      // Copy data to the buffer
+      if (!input_cuda_buffer_.copyFromHost(blob.data, data_size)) {
+        std::cerr << "Error copying data to buffer" << std::endl;
+        throw std::runtime_error("Error copying data to buffer");
       }
     }
 
     // Reset YOLO state
-    yolo_state_ = std::make_unique<InferenceState>(yolo_.createInferenceState(input_cuda_buffer_));
+    yolo_state_->restart(input_cuda_buffer_);
 
     batch_count_ = 0;
     processed_layers_ = 0;  // Reset processed layers counter
@@ -433,9 +429,11 @@ protected:
   int batch_size_;            // Batch size for compute iterations
   std::string weights_path_;  // Path to YOLO weights
 
-  CudaBuffer input_cuda_buffer_;                // Input image buffer
-  std::unique_ptr<InferenceState> yolo_state_;  // YOLO inference state as pointer
   AnytimeYOLO yolo_;
+  std::unique_ptr<InferenceState> yolo_state_;  // YOLO inference state as pointer
+  CudaHostBuffer input_cuda_buffer_;            // Input image buffer
+
+  bool halfPrecision;  // Flag for half precision
 
   // Batch count and average computation time
   int batch_count_ = 0;
