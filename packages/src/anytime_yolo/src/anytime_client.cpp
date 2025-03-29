@@ -53,7 +53,6 @@ AnytimeActionClient::~AnytimeActionClient() {}
 // Fill the image callback implementation with image data
 void AnytimeActionClient::image_callback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
-  client_goal_start_time_ = this->now();
   Anytime::Goal goal_msg;
 
   // Fill in the goal message with data from the image message
@@ -70,6 +69,7 @@ void AnytimeActionClient::image_callback(const sensor_msgs::msg::Image::SharedPt
 
 void AnytimeActionClient::send_goal(const Anytime::Goal & goal_msg)
 {
+  client_goal_start_time_ = this->now();
   RCLCPP_INFO(this->get_logger(), "Sending goal info");
 
   // Define the goal options with callbacks

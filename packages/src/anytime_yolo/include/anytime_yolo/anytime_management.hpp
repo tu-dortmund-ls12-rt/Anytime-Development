@@ -38,10 +38,14 @@ public:
     if constexpr (isReactiveProactive) {
       anytime_iteration_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->proactive_function(); });
+      anytime_result_waitable_ =
+        std::make_shared<AnytimeWaitable>([this]() { this->calculate_result(); });
       anytime_check_finish_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->check_cancel_and_finish_proactive(); });
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
+      node->get_node_waitables_interface()->add_waitable(
+        anytime_result_waitable_, notify_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
         anytime_check_finish_waitable_, notify_callback_group_);
     }
@@ -106,7 +110,6 @@ public:
   void check_cancel_and_finish_proactive() override
   {
     RCLCPP_INFO(node_->get_logger(), "Checking cancel and finish in proactive mode");
-    calculate_result();
 
     // Print number of detected objects and processed layers
     RCLCPP_INFO(
@@ -178,8 +181,8 @@ public:
       }
     } else if constexpr (isReactiveProactive) {
       if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
-        RCLCPP_INFO(this_ptr->node_->get_logger(), "Notifying check finish from callback function");
-        this_ptr->notify_check_finish();
+        RCLCPP_INFO(this_ptr->node_->get_logger(), "Calculating result from callback function");
+        this_ptr->notify_result();
       }
     }
   }
@@ -248,6 +251,8 @@ public:
 
     if constexpr (!isSyncAsync) {
       if constexpr (isReactiveProactive) {
+        RCLCPP_INFO(node_->get_logger(), "Calculating result");
+        calculate_result();
         RCLCPP_INFO(node_->get_logger(), "Notifying check finish");
         notify_check_finish();
       } else if constexpr (!isReactiveProactive) {
@@ -261,6 +266,8 @@ public:
 
   void calculate_result() override
   {
+    auto new_result = std::make_shared<Anytime::Result>();
+
     RCLCPP_INFO(node_->get_logger(), "Calculating result");
     result_processed_layers_ = processed_layers_;
     std::vector<float> yolo_result;
@@ -271,11 +278,6 @@ public:
       RCLCPP_INFO(node_->get_logger(), "Finishing early");
       yolo_result = yolo_.finishEarly(*yolo_state_);
     }
-
-    // Convert the YOLO result vector to Detection2D messages
-    // The vector format is [x(top left), y(top left), x(bottom right), y(bottom right), width,
-    // height, confidence, class_id] repeated for each detection
-    this->result_->detections.clear();
 
     for (size_t i = 0; i < yolo_result.size(); i += 6) {
       // skip if confidence is 0.0
@@ -318,14 +320,27 @@ public:
         std::to_string(static_cast<int>(yolo_result[i + 5]));
 
       // Add the detection to the result
-      this->result_->detections.push_back(detection);
+      new_result->detections.push_back(detection);
     }
 
     // Add additional information to result
-    this->result_->average_batch_time = average_computation_time_;
-    this->result_->batch_size = batch_size_;
-    this->result_->processed_layers = processed_layers_;
-    this->result_->result_processed_layers = result_processed_layers_;
+    new_result->average_batch_time = average_computation_time_;
+    new_result->batch_size = batch_size_;
+    new_result->processed_layers = processed_layers_;
+    new_result->result_processed_layers = result_processed_layers_;
+
+    new_result->action_server_receive = this->server_goal_receive_time_;
+    new_result->action_server_accept = this->server_goal_accept_time_;
+    new_result->action_server_start = this->server_goal_start_time_;
+    new_result->action_server_cancel = this->result_->action_server_cancel;
+
+    this->result_ = new_result;
+
+    if constexpr (isSyncAsync && isReactiveProactive) {
+      // Notify the waitable for async mode
+      RCLCPP_INFO(node_->get_logger(), "Notifying iteration from calculate_result function");
+      notify_iteration();
+    }
   }
 
   // Cancel function
@@ -406,10 +421,6 @@ public:
 
     // Reset YOLO state
     yolo_state_ = std::make_unique<InferenceState>(yolo_.createInferenceState(input_cuda_buffer_));
-
-    this->result_->action_server_receive = this->server_goal_receive_time_;
-    this->result_->action_server_accept = this->server_goal_accept_time_;
-    this->result_->action_server_start = this->server_goal_start_time_;
 
     batch_count_ = 0;
     processed_layers_ = 0;  // Reset processed layers counter

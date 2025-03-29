@@ -6,6 +6,16 @@ import glob
 import numpy as np
 import argparse
 
+# Add this after the imports to increase font size globally
+plt.rcParams.update({
+    'font.size': 18,
+    'axes.titlesize': 20,
+    'axes.labelsize': 18,
+    'xtick.labelsize': 16,
+    'ytick.labelsize': 16,
+    'legend.fontsize': 16,
+})
+
 
 def calculate_time_difference(df, start_timestamp, end_timestamp):
     """
@@ -396,7 +406,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
 
                     if not matching_files:
                         # Try the old timing data pattern as fallback
-                        pattern = f"results/yolo/anytime_timing_data_batch_{batch_size}_{reactive}_{threading}__{sync_async}_run*.csv"
+                        pattern = f"results/yolo/anytime_timing_data_batch_{batch_size}_{reactive}_{threading}_{sync_async}_run*.csv"
                         matching_files = glob.glob(pattern)
 
                     if not matching_files:
