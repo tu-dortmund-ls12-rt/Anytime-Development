@@ -383,7 +383,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
     for threading in threading_types:
         for reactive in reactive_types:
             for sync_async in sync_async_types:
-                config = f"{threading}-{reactive}-{sync_async}"
+                config = f"{threading}-{reactive}-cooperative-{sync_async}"
                 all_data[config] = {}
 
                 print(f"Collecting data for {config}...")
@@ -391,12 +391,12 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                 # Collect data for each batch size
                 for batch_size in batch_sizes:
                     # Match all runs for this configuration
-                    pattern = f"results/yolo/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_{sync_async}_run*.csv"
+                    pattern = f"results/yolo/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_cooperative_{sync_async}_run*.csv"
                     matching_files = glob.glob(pattern)
 
                     if not matching_files:
                         # Try the old timing data pattern as fallback
-                        pattern = f"results/yolo/anytime_timing_data_batch_{batch_size}_{reactive}_{threading}_{sync_async}_run*.csv"
+                        pattern = f"results/yolo/anytime_timing_data_batch_{batch_size}_{reactive}_{threading}_cooperative_{sync_async}_run*.csv"
                         matching_files = glob.glob(pattern)
 
                     if not matching_files:
@@ -475,14 +475,14 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
 
     # Define colors for different configurations
     config_colors = {
-        'single-reactive-sync': 'blue',
-        'single-reactive-async': 'lightblue',
-        'single-proactive-sync': 'green',
-        'single-proactive-async': 'lightgreen',
-        'multi-reactive-sync': 'red',
-        'multi-reactive-async': 'salmon',
-        'multi-proactive-sync': 'purple',
-        'multi-proactive-async': 'plum'
+        'single-reactive-cooperative-sync': 'blue',
+        'single-reactive-cooperative-async': 'lightblue',
+        'single-proactive-cooperative-sync': 'green',
+        'single-proactive-cooperative-async': 'lightgreen',
+        'multi-reactive-cooperative-sync': 'red',
+        'multi-reactive-cooperative-async': 'salmon',
+        'multi-proactive-cooperative-sync': 'purple',
+        'multi-proactive-cooperative-async': 'plum'
     }
 
     def create_boxplots_for_metrics(metrics_list, is_latency_metric=False):
@@ -654,7 +654,7 @@ def main():
                     file_pattern = f"{args.results_dir}/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_cooperative_{sync_async}_run1.csv"
 
                     # Plot combined data from all runs
-                    plot_raw_timestamps(file_pattern, output_dir)
+                    # plot_raw_timestamps(file_pattern, output_dir)
 
     # After plotting individual files, create batch size comparison plots
     plot_batch_size_comparison(
