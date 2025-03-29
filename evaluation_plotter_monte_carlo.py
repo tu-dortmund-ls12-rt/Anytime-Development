@@ -6,6 +6,16 @@ import glob
 import numpy as np
 import argparse
 
+# Add this after the imports to increase font size globally
+plt.rcParams.update({
+    'font.size': 18,
+    'axes.titlesize': 20,
+    'axes.labelsize': 18,
+    'xtick.labelsize': 16,
+    'ytick.labelsize': 16,
+    'legend.fontsize': 16,
+})
+
 
 def calculate_time_difference(df, start_timestamp, end_timestamp):
     """
@@ -46,6 +56,11 @@ def plot_metrics_generic(x_values, metrics_dict, title, ylabel, output_path, fig
 
     for metric_name, metric_values in metrics_dict.items():
         plt.plot(x_values, metric_values, label=metric_name)
+
+    # Replace "Batch Size" with "Block Size" in the title
+    title = title.replace("Batch Size", "Block Size")
+    title = title.replace("batch size", "block size")
+    title = title.replace("Batch", "Block").replace("batch", "block")
 
     plt.title(title)
     plt.xlabel('Sample Index')
@@ -512,45 +527,6 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             for median, color in zip(boxes['medians'], box_colors):
                 median.set(color='black', linewidth=1.5)
 
-            # # Add lines connecting mean values across batch sizes
-            # # First, collect mean values by configuration and batch size
-            # config_means = {config: {} for config in all_data.keys()}
-            # config_stderrs = {config: {} for config in all_data.keys()}
-
-            # for i, batch_size in enumerate(all_batch_sizes):
-            #     for config, metrics in all_data.items():
-            #         if metric_name in metrics and batch_size in metrics[metric_name]:
-            #             data = metrics[metric_name][batch_size]
-            #             if len(data) > 0:
-            #                 config_means[config][batch_size] = np.mean(data)
-            #                 # Standard error for error bars
-            #                 config_stderrs[config][batch_size] = np.std(
-            #                     data) / np.sqrt(len(data))
-
-            # # Now plot lines connecting the means with error bars
-            # for config, means in config_means.items():
-            #     if len(means) > 1:  # Only plot if we have at least two points
-            #         x_values = []
-            #         y_values = []
-            #         errors = []
-            #         for batch_size in sorted(means.keys()):
-            #             # Find the x-position for this batch size
-            #             batch_idx = all_batch_sizes.index(batch_size)
-            #             config_idx = sorted(all_data.keys()).index(config)
-            #             x_pos = batch_idx * \
-            #                 (len(config_colors) + group_space) + \
-            #                 1 + config_idx * box_space
-
-            #             x_values.append(x_pos)
-            #             y_values.append(means[batch_size])
-            #             errors.append(config_stderrs[config][batch_size])
-
-            #         # Plot the line connecting means with the same color as the boxes
-            #         plt.errorbar(x_values, y_values, yerr=errors,
-            #                      fmt='-o', color=config_colors.get(config, 'gray'),
-            #                      linewidth=2, alpha=0.7,
-            #                      capsize=4, elinewidth=1.5)
-
             # Set x-ticks at the middle of each group
             group_positions = [i * (len(config_colors) + group_space) + 1 + (len(config_colors) * box_space) / 2
                                for i in range(len(all_batch_sizes))]
@@ -573,7 +549,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             ax.set_xticklabels([str(bs) for bs in all_batch_sizes])
 
             # Add batch size labels
-            plt.xlabel('Batch Size')
+            plt.xlabel('Block Size')
 
             # Set y-axis label based on metric type
             if is_latency_metric:
@@ -581,8 +557,13 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             else:
                 plt.ylabel(f'{metric_name.replace("_", " ").title()}')
 
-            plt.title(
-                f'{metric_name.replace("_", " ").title()} vs Batch Size - All Configurations (Combined Runs)')
+            # Update the title to use "Block Size" instead of "Batch Size"
+            title = f'{metric_name.replace("_", " ").title()} vs Block Size - All Configurations (Combined Runs)'
+            if "batch" in title.lower():
+                title = title.replace(
+                    "Batch", "Block").replace("batch", "block")
+            plt.title(title)
+
             plt.grid(True, axis='y')
 
             # Add legend for configurations
@@ -594,7 +575,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             # Adjust layout for better display
             plt.tight_layout()
 
-            # Save the plot
+            # Update the filename but keep the variable name consistent
             filename = f'{output_dir}/{metric_name}_boxplot_batch_size_combined.png'
             plt.savefig(filename)
             plt.close()
@@ -647,7 +628,7 @@ def main():
                 file_pattern = f"{args.results_dir}/anytime_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_run1.csv"
 
                 # Plot combined data from all runs
-                plot_raw_timestamps(file_pattern, output_dir)
+                # plot_raw_timestamps(file_pattern, output_dir)
 
     # After plotting individual files, create batch size comparison plots
     plot_batch_size_comparison(
