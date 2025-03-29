@@ -80,8 +80,8 @@ if [[ "$mode" == "run" || "$mode" == "both" ]]; then
                             sync_param="sync"
                         fi
                         
-                        config_name="yolo_${batch_size}_${reactive_param}_${threading_param}_${passive_param}_${sync_param}_run${run}"
-                        result_filename="yolo/yolo_raw_timestamps_batch_${batch_size}_${reactive_param}_${threading_param}_${passive_param}_${sync_param}_run${run}"
+                        config_name="yolo_${batch_size}_${reactive_param}_${threading_param}_${sync_param}_run${run}"
+                        result_filename="yolo/yolo_raw_timestamps_batch_${batch_size}_${reactive_param}_${threading_param}_${sync_param}_run${run}"
                         
                         echo "Running configuration: $config_name (Run $run of $num_runs)"
 

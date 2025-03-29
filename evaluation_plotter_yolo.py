@@ -182,11 +182,11 @@ def plot_raw_timestamps(csv_files, output_dir):
         # Calculate iterations per batch unit if both metrics are available
         if 'iterations' in combined_df.columns:
             time_diffs['iterations_per_batch'] = iterations / batch_size
-            
+
     # Add processed layers metrics
     if 'processed_layers' in combined_df.columns:
         time_diffs['processed_layers'] = combined_df['processed_layers'].to_numpy()
-        
+
     if 'result_processed_layers' in combined_df.columns:
         time_diffs['result_processed_layers'] = combined_df['result_processed_layers'].to_numpy()
 
@@ -306,7 +306,7 @@ def plot_raw_timestamps(csv_files, output_dir):
             'Iterations/Batch Size',
             f'{output_dir}/{base_name}_iterations_per_batch.png'
         )
-        
+
     # Plot processed layers
     if 'processed_layers' in time_diffs:
         plot_metrics_generic(
@@ -316,7 +316,7 @@ def plot_raw_timestamps(csv_files, output_dir):
             'Number of Layers',
             f'{output_dir}/{base_name}_processed_layers.png'
         )
-        
+
     # Plot result processed layers
     if 'result_processed_layers' in time_diffs:
         plot_metrics_generic(
@@ -383,7 +383,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
     for threading in threading_types:
         for reactive in reactive_types:
             for sync_async in sync_async_types:
-                config = f"{threading}-{reactive}-cooperative-{sync_async}"
+                config = f"{threading}-{reactive}-{sync_async}"
                 all_data[config] = {}
 
                 print(f"Collecting data for {config}...")
@@ -391,12 +391,12 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                 # Collect data for each batch size
                 for batch_size in batch_sizes:
                     # Match all runs for this configuration
-                    pattern = f"results/yolo/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_cooperative_{sync_async}_run*.csv"
+                    pattern = f"results/yolo/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_{sync_async}_run*.csv"
                     matching_files = glob.glob(pattern)
 
                     if not matching_files:
                         # Try the old timing data pattern as fallback
-                        pattern = f"results/yolo/anytime_timing_data_batch_{batch_size}_{reactive}_{threading}_cooperative_{sync_async}_run*.csv"
+                        pattern = f"results/yolo/anytime_timing_data_batch_{batch_size}_{reactive}_{threading}__{sync_async}_run*.csv"
                         matching_files = glob.glob(pattern)
 
                     if not matching_files:
@@ -421,7 +421,8 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                             try:
                                 df = pd.read_csv(file)
                                 # Fix to handle .csv extension
-                                run_num = int(file.split('_run')[-1].split('.')[0])
+                                run_num = int(file.split('_run')
+                                              [-1].split('.')[0])
                                 df['run'] = run_num
                                 dfs.append(df)
                             except Exception as e2:
@@ -457,13 +458,15 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                     if 'iterations' in combined_df.columns and 'batch_size' in combined_df.columns:
                         metrics['iterations_per_batch'] = combined_df['iterations'].to_numpy(
                         ) / combined_df['batch_size'].to_numpy()
-                        
+
                     # Extract processed layers metrics
                     if 'processed_layers' in combined_df.columns:
-                        metrics['processed_layers'] = combined_df['processed_layers'].to_numpy()
-                        
+                        metrics['processed_layers'] = combined_df['processed_layers'].to_numpy(
+                        )
+
                     if 'result_processed_layers' in combined_df.columns:
-                        metrics['result_processed_layers'] = combined_df['result_processed_layers'].to_numpy()
+                        metrics['result_processed_layers'] = combined_df['result_processed_layers'].to_numpy(
+                        )
 
                     print(f"Calculated metrics for batch_size={batch_size}")
 
@@ -651,7 +654,7 @@ def main():
                         f"Processing configuration: threading={threading}, reactive={reactive}, sync_async={sync_async}, batch_size={batch_size}")
 
                     # Use first run file as reference, but will combine all runs
-                    file_pattern = f"{args.results_dir}/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_cooperative_{sync_async}_run1.csv"
+                    file_pattern = f"{args.results_dir}/yolo_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_{sync_async}_run1.csv"
 
                     # Plot combined data from all runs
                     # plot_raw_timestamps(file_pattern, output_dir)
