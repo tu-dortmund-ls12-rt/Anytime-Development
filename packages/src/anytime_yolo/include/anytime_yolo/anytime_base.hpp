@@ -63,6 +63,7 @@ protected:
 
   // callback group for compute
   rclcpp::CallbackGroup::SharedPtr compute_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr notify_callback_group_;
 
   int batch_size_ = 1;  // Default batch size
 };

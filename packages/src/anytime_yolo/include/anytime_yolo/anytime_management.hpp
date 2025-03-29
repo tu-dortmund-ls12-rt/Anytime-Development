@@ -31,6 +31,8 @@ public:
     // callback group
     compute_callback_group_ =
       node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    notify_callback_group_ =
+      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
     // --- Proactive Variables ---
     if constexpr (isReactiveProactive) {
@@ -41,8 +43,7 @@ public:
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
-        anytime_check_finish_waitable_,
-        node_->get_node_base_interface()->get_default_callback_group());
+        anytime_check_finish_waitable_, notify_callback_group_);
     }
     // --- Reactive Variables ---
     else {
@@ -57,14 +58,6 @@ public:
 
   void reactive_function()
   {
-    RCLCPP_INFO(node_->get_logger(), "Reactive function called");
-    auto feedback = std::make_shared<Anytime::Feedback>();
-    feedback->processed_layers = processed_layers_;
-    this->goal_handle_->publish_feedback(feedback);
-    RCLCPP_INFO(
-      node_->get_logger(), "Reactive function feedback sent, processed layers: %d",
-      processed_layers_);
-
     if (check_cancel_and_finish_reactive()) {
       return;
     } else {
@@ -115,12 +108,6 @@ public:
   {
     RCLCPP_INFO(node_->get_logger(), "Checking cancel and finish in proactive mode");
     calculate_result();
-    auto feedback = std::make_shared<Anytime::Feedback>();
-    feedback->processed_layers = processed_layers_;
-    this->goal_handle_->publish_feedback(feedback);
-    RCLCPP_INFO(
-      node_->get_logger(), "Proactive function feedback sent, processed layers: %d",
-      processed_layers_);
 
     // Print number of detected objects and processed layers
     RCLCPP_INFO(
@@ -176,6 +163,13 @@ public:
       // sync does not call this function
     }
 
+    auto feedback = std::make_shared<Anytime::Feedback>();
+    feedback->processed_layers = this_ptr->processed_layers_;
+    this_ptr->goal_handle_->publish_feedback(feedback);
+    RCLCPP_INFO(
+      this_ptr->node_->get_logger(), "Proactive function feedback sent, processed layers: %d",
+      this_ptr->processed_layers_);
+
     // Notify the waitable
     if constexpr (!isReactiveProactive) {
       if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
@@ -224,6 +218,13 @@ public:
         // Increment processed layers counter for sync mode
         processed_layers_++;
         RCLCPP_INFO(node_->get_logger(), "Processed layers: %d", processed_layers_);
+
+        auto feedback = std::make_shared<Anytime::Feedback>();
+        feedback->processed_layers = processed_layers_;
+        this->goal_handle_->publish_feedback(feedback);
+        RCLCPP_INFO(
+          node_->get_logger(), "Proactive function feedback sent, processed layers: %d",
+          processed_layers_);
       } else if constexpr (isSyncAsync) {
         // nothing to do for async mode
       }
