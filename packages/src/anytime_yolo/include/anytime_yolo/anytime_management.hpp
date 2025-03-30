@@ -38,8 +38,8 @@ public:
     // callback group
     compute_callback_group_ =
       node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-    notify_callback_group_ =
-      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    // notify_callback_group_ =
+    //   node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
     // --- Proactive Variables ---
     if constexpr (isReactiveProactive) {
@@ -52,7 +52,7 @@ public:
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
       node->get_node_waitables_interface()->add_waitable(
-        anytime_result_waitable_, notify_callback_group_);
+        anytime_result_waitable_, compute_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
         anytime_check_finish_waitable_, notify_callback_group_);
     }
