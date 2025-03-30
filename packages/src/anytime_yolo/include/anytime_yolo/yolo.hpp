@@ -50,7 +50,7 @@ public:
   {
     // Allocate pinned memory
     cudaError_t status = cudaMallocHost(&host_ptr, size);
-        if (status != cudaSuccess) {
+    if (status != cudaSuccess) {
       std::cerr << "Error allocating pinned memory: " << cudaGetErrorString(status) << std::endl;
     }
   }
@@ -110,7 +110,7 @@ public:
     }
 
     cudaError_t status = cudaMemcpy(host_ptr, src, copy_size, cudaMemcpyHostToHost);
-          if (status != cudaSuccess) {
+    if (status != cudaSuccess) {
       std::cerr << "Error copying data to host buffer: " << cudaGetErrorString(status) << std::endl;
       return false;
     }
@@ -279,11 +279,8 @@ cv::Mat loadImageFromFile(const std::string & imagePath)
   return img;
 }
 
-
-
 bool prepareImage(const cv::Mat & img, CudaHostBuffer & buffer, bool halfPrecision)
 {
-
   cv::Mat blob = cv::dnn::blobFromImage(
     img,                  // input image
     1.0 / 255.0,          // scale factor (normalization)
@@ -298,7 +295,6 @@ bool prepareImage(const cv::Mat & img, CudaHostBuffer & buffer, bool halfPrecisi
   } else {
     blob.convertTo(blob, CV_32F);  // Convert to float
   }
-
 
   const size_t data_size =
     blob.total() * blob.elemSize();  // Total number of elements * size of each element
@@ -1005,7 +1001,9 @@ public:
             throw std::runtime_error(
               "Layer processing failed at index " + std::to_string(state.currentIndex));
           }
-
+          if (!async) {
+            cudaStreamSynchronize(stream);
+          }
           // Move to next layer
           state.currentIndex++;
         } else {
@@ -1030,7 +1028,9 @@ public:
               state.exitOutputBuffer, stream)) {
           throw std::runtime_error("Exit processing failed");
         }
-
+        if (!async) {
+          cudaStreamSynchronize(stream);
+        }
         // Move to NMS processing
         state.currentStage = InferenceState::NMS_PROCESSING;
         break;

@@ -38,8 +38,8 @@ public:
     // callback group
     compute_callback_group_ =
       node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-    // notify_callback_group_ =
-    //   node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    notify_callback_group_ =
+      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
     // --- Proactive Variables ---
     if constexpr (isReactiveProactive) {
@@ -52,9 +52,10 @@ public:
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
       node->get_node_waitables_interface()->add_waitable(
-        anytime_result_waitable_, compute_callback_group_);
+        anytime_result_waitable_, notify_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
-        anytime_check_finish_waitable_, notify_callback_group_);
+        anytime_check_finish_waitable_,
+        node_->get_node_base_interface()->get_default_callback_group());
     }
     // --- Reactive Variables ---
     else {
@@ -125,6 +126,10 @@ public:
     bool should_finish = yolo_state_->isCompleted();
     bool should_cancel = this->goal_handle_->is_canceling() || !this->goal_handle_->is_executing();
 
+    if (should_finish && !should_cancel) {
+      calculate_result();
+    }
+
     if ((should_finish || should_cancel) && this->is_running()) {
       this->result_->action_server_send_result = this->node_->now();
 
@@ -148,6 +153,7 @@ public:
       node_->get_logger(), "Proactive function not finished, should finish: %d, should cancel: %d",
       should_finish, should_cancel);
     notify_iteration();
+    notify_result();
   }
 
   // ----------------- Common Functions -----------------
@@ -189,7 +195,7 @@ public:
     } else if constexpr (isReactiveProactive) {
       if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
         RCLCPP_INFO(this_ptr->node_->get_logger(), "Calculating result from callback function");
-        this_ptr->notify_result();
+        this_ptr->notify_check_finish();
       }
     }
   }
@@ -257,14 +263,12 @@ public:
     }
 
     if constexpr (!isSyncAsync) {
-      if constexpr (isReactiveProactive) {
-        RCLCPP_INFO(node_->get_logger(), "Calculating result");
-        calculate_result();
-        RCLCPP_INFO(node_->get_logger(), "Notifying check finish");
-        notify_check_finish();
-      } else if constexpr (!isReactiveProactive) {
+      if constexpr (!isReactiveProactive) {
         RCLCPP_INFO(node_->get_logger(), "Notifying iteration");
         notify_iteration();
+      } else if constexpr (isReactiveProactive) {
+        RCLCPP_INFO(node_->get_logger(), "Notifying check finish");
+        notify_check_finish();
       }
     } else if constexpr (isSyncAsync) {
       // nothing to do for async mode
@@ -343,11 +347,11 @@ public:
 
     this->result_ = new_result;
 
-    if constexpr (isSyncAsync && isReactiveProactive) {
-      // Notify the waitable for async mode
-      RCLCPP_INFO(node_->get_logger(), "Notifying iteration from calculate_result function");
-      notify_iteration();
-    }
+    // if constexpr (isSyncAsync && isReactiveProactive) {
+    //   // Notify the waitable for async mode
+    //   RCLCPP_INFO(node_->get_logger(), "Notifying iteration from calculate_result function");
+    //   notify_iteration();
+    // }
   }
 
   // Cancel function
