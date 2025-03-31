@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <ratio>
 #include <string>
 #include <variant>
@@ -1018,6 +1019,7 @@ public:
       }
 
       case InferenceState::EXIT_PROCESSING: {
+        std::lock_guard<std::mutex> lock(exitMutex);
         std::cout << "Reached exit" << std::endl;
 
         // Process exit using layers output
@@ -1041,6 +1043,7 @@ public:
       }
 
       case InferenceState::NMS_PROCESSING: {
+        std::lock_guard<std::mutex> lock(exitMutex);
         CudaBuffer & input = state.exitOutputBuffer;
 
         // Use the new function to process NMS and get results
@@ -1142,6 +1145,7 @@ public:
 
   std::vector<float> calculateLatestExit(InferenceState & state)
   {
+    std::lock_guard<std::mutex> lock(exitMutex);
     synchronize();
     CudaBuffer nmsOutputBuffer;
 
@@ -1210,6 +1214,8 @@ private:
   std::unique_ptr<IExecutionContext> nmsContext;
 
   cudaStream_t stream;
+
+  std::mutex exitMutex;
 
   bool loadNMS(const json & nmsConfig, const std::string & folderPath, bool halfPrecision = false)
   {
