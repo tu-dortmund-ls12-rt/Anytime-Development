@@ -8,12 +8,12 @@ import argparse
 
 # Add this after the imports to increase font size globally
 plt.rcParams.update({
-    'font.size': 18,
-    'axes.titlesize': 20,
-    'axes.labelsize': 18,
-    'xtick.labelsize': 16,
-    'ytick.labelsize': 16,
-    'legend.fontsize': 16,
+    'font.size': 22,
+    'axes.titlesize': 24,
+    'axes.labelsize': 22,
+    'xtick.labelsize': 20,
+    'ytick.labelsize': 20,
+    'legend.fontsize': 20,
 })
 
 
@@ -57,17 +57,21 @@ def plot_metrics_generic(x_values, metrics_dict, title, ylabel, output_path, fig
     for metric_name, metric_values in metrics_dict.items():
         plt.plot(x_values, metric_values, label=metric_name)
 
-    # Replace "Batch Size" with "Block Size" in the title
-    title = title.replace("Batch Size", "Block Size")
-    title = title.replace("batch size", "block size")
-    title = title.replace("Batch", "Block").replace("batch", "block")
+    # Remove title
+    # plt.title(title)
 
-    plt.title(title)
     plt.xlabel('Sample Index')
     plt.ylabel(ylabel)
     plt.grid(True)
     if len(metrics_dict) > 1:
         plt.legend()
+
+    # Always show zero on y-axis
+    plt.ylim(bottom=0)
+
+    # Change output to PDF
+    output_path = output_path.replace('.png', '.pdf')
+
     plt.savefig(output_path)
     plt.close()
 
@@ -238,7 +242,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         latency_metrics,
         f'Latency Metrics - {base_name} (Combined Runs)',
         'Time (ms)',
-        f'{output_dir}/{base_name}_latencies.png',
+        f'{output_dir}/{base_name}_latencies.pdf',
         figsize=(15, 10)
     )
 
@@ -253,7 +257,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         send_metrics,
         f'Goal Sending Metrics - {base_name} (Combined Runs)',
         'Time (ms)',
-        f'{output_dir}/{base_name}_send_metrics.png'
+        f'{output_dir}/{base_name}_send_metrics.pdf'
     )
 
     # Group 2: Server processing time
@@ -265,7 +269,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         server_metrics,
         f'Server Processing Metrics - {base_name} (Combined Runs)',
         'Time (ms)',
-        f'{output_dir}/{base_name}_server_metrics.png'
+        f'{output_dir}/{base_name}_server_metrics.pdf'
     )
 
     # Group 3: Cancellation metrics
@@ -278,7 +282,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         cancel_metrics,
         f'Cancellation Metrics - {base_name} (Combined Runs)',
         'Time (ms)',
-        f'{output_dir}/{base_name}_cancel_metrics.png'
+        f'{output_dir}/{base_name}_cancel_metrics.pdf'
     )
 
     # Group 4 - Processing times
@@ -290,7 +294,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         processing_metrics,
         f'Processing Times - {base_name} (Combined Runs)',
         'Time (ms)',
-        f'{output_dir}/{base_name}_processing_metrics.png'
+        f'{output_dir}/{base_name}_processing_metrics.pdf'
     )
 
     # Group 5 - Response time
@@ -303,7 +307,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         response_metrics,
         f'Response Time Metrics - {base_name} (Combined Runs)',
         'Time (ms)',
-        f'{output_dir}/{base_name}_response_metrics.png'
+        f'{output_dir}/{base_name}_response_metrics.pdf'
     )
 
     # 3. Plot individual metrics
@@ -314,7 +318,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
             {'batch_time': time_diffs['batch_time']},
             f'Batch Processing Time - {base_name} (Combined Runs)',
             'Time (ms)',
-            f'{output_dir}/{base_name}_batch_time.png'
+            f'{output_dir}/{base_name}_batch_time.pdf'
         )
 
     # Plot iterations
@@ -324,7 +328,7 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
             {'iterations': time_diffs['iterations']},
             f'Total Iterations - {base_name} (Combined Runs)',
             'Iterations',
-            f'{output_dir}/{base_name}_iterations.png'
+            f'{output_dir}/{base_name}_iterations.pdf'
         )
 
     # Plot iterations per batch
@@ -332,9 +336,9 @@ def plot_raw_timestamps(csv_files, output_dir, cut_samples=0):
         plot_metrics_generic(
             x_values,
             {'iterations_per_batch': time_diffs['iterations_per_batch']},
-            f'Iterations per Batch Unit - {base_name} (Combined Runs)',
-            'Iterations/Batch Size',
-            f'{output_dir}/{base_name}_iterations_per_batch.png'
+            f'Iterations per Block Unit - {base_name} (Combined Runs)',
+            'Iterations/Block Size',
+            f'{output_dir}/{base_name}_iterations_per_batch.pdf'
         )
 
 
@@ -350,7 +354,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
         output_dir: Directory to save output plots
         cut_samples: Number of samples to cut from the beginning of each run
     """
-    print("Creating batch size comparison plots combining data from multiple runs...")
+    print("Creating block size comparison plots combining data from multiple runs...")
 
     # Metrics to compare across batch sizes
     metrics_to_compare = [
@@ -502,6 +506,125 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
         'multi-proactive': 'purple'
     }
 
+    def create_bar_charts_for_metrics(metrics_list, is_latency_metric=False):
+        """
+        Helper function to create bar charts with error bars for a list of metrics
+
+        Args:
+            metrics_list: List of metrics to plot
+            is_latency_metric: Whether these are latency metrics (affects y-axis label)
+        """
+        for metric_name in metrics_list:
+            print(f"Creating bar chart for metric: {metric_name}")
+
+            # Get all batch sizes that have data
+            all_batch_sizes = sorted(set(bs for config in all_data.values()
+                                         if metric_name in config
+                                         for bs in config[metric_name].keys()))
+
+            if not all_batch_sizes:
+                print(f"No data available for metric {metric_name}")
+                continue
+
+            # Create figure with appropriate size
+            fig, ax = plt.subplots(
+                figsize=(max(12, len(all_batch_sizes) * 2.5), 8))
+
+            # Define width of bars and positions
+            n_configs = len(config_colors)
+            bar_width = 0.8 / n_configs
+
+            # Track means and std devs for each configuration and batch size
+            all_means = {}
+            all_stds = {}
+            all_positions = {}
+
+            # Calculate positions for each batch size group
+            group_positions = np.arange(len(all_batch_sizes))
+
+            # Calculate means and standard deviations for each configuration and batch size
+            for config, metrics in sorted(all_data.items()):
+                all_means[config] = []
+                all_stds[config] = []
+                all_positions[config] = []
+
+                for i, batch_size in enumerate(all_batch_sizes):
+                    if metric_name in metrics and batch_size in metrics[metric_name]:
+                        data = metrics[metric_name][batch_size]
+                        if len(data) > 0:
+                            all_means[config].append(np.mean(data))
+                            all_stds[config].append(np.std(data))
+                            all_positions[config].append(i)
+                        else:
+                            all_means[config].append(0)
+                            all_stds[config].append(0)
+                            all_positions[config].append(i)
+                    else:
+                        all_means[config].append(0)
+                        all_stds[config].append(0)
+                        all_positions[config].append(i)
+
+            # Plot bars for each configuration
+            for i, (config, color) in enumerate(sorted(config_colors.items())):
+                if config in all_means and all_means[config]:
+                    bar_positions = group_positions + \
+                        (i - n_configs/2 + 0.5) * bar_width
+                    bars = ax.bar(
+                        bar_positions,
+                        all_means[config],
+                        bar_width,
+                        color=color,
+                        alpha=0.7,
+                        label=config
+                    )
+
+                    # Add error bars
+                    ax.errorbar(
+                        bar_positions,
+                        all_means[config],
+                        yerr=all_stds[config],
+                        fmt='none',
+                        color='black',
+                        capsize=3
+                    )
+
+            # Set x-ticks at the middle of each group
+            ax.set_xticks(group_positions)
+            ax.set_xticklabels([str(bs) for bs in all_batch_sizes])
+
+            # Add vertical grid lines between batch size groups
+            if len(all_batch_sizes) > 1:
+                for i in range(len(all_batch_sizes) - 1):
+                    plt.axvline(x=i + 0.5, color='gray',
+                                linestyle='--', alpha=0.5)
+
+            # Always show zero on y-axis
+            ax.set_ylim(bottom=0)
+
+            # Add block size label
+            plt.xlabel('Block Size')
+
+            # Set y-axis label based on metric type
+            if is_latency_metric:
+                plt.ylabel('Time (ms)')
+            else:
+                plt.ylabel(f'{metric_name.replace("_", " ").title()}')
+
+            # No title
+            plt.grid(True, axis='y')
+
+            # Add legend for configurations
+            plt.legend(loc='best')
+
+            # Adjust layout for better display
+            plt.tight_layout()
+
+            # Save the plot as PDF
+            filename = f'{output_dir}/{metric_name}_barchart_block_size_combined.pdf'
+            plt.savefig(filename)
+            plt.close()
+            print(f"Saved bar chart to {filename}")
+
     def create_boxplots_for_metrics(metrics_list, is_latency_metric=False):
         """
         Helper function to create boxplots for a list of metrics
@@ -592,7 +715,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             ax.set_xticks(group_positions)
             ax.set_xticklabels([str(bs) for bs in all_batch_sizes])
 
-            # Add batch size labels
+            # Add block size labels
             plt.xlabel('Block Size')
 
             # Set y-axis label based on metric type
@@ -601,12 +724,8 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             else:
                 plt.ylabel(f'{metric_name.replace("_", " ").title()}')
 
-            # Update the title to use "Block Size" instead of "Batch Size"
-            title = f'{metric_name.replace("_", " ").title()} vs Block Size - All Configurations (Combined Runs)'
-            if "batch" in title.lower():
-                title = title.replace(
-                    "Batch", "Block").replace("batch", "block")
-            plt.title(title)
+            # Remove title
+            # plt.title(title)
 
             plt.grid(True, axis='y')
 
@@ -619,16 +738,16 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             # Adjust layout for better display
             plt.tight_layout()
 
-            # Update the filename but keep the variable name consistent
-            filename = f'{output_dir}/{metric_name}_boxplot_batch_size_combined.png'
+            # Save the plot as PDF
+            filename = f'{output_dir}/{metric_name}_boxplot_block_size_combined.pdf'
             plt.savefig(filename)
             plt.close()
             print(f"Saved boxplot to {filename}")
 
-    # Plot regular performance metrics
-    create_boxplots_for_metrics(metrics_to_compare, is_latency_metric=False)
+    # Plot regular performance metrics as bar charts with error bars
+    create_bar_charts_for_metrics(metrics_to_compare, is_latency_metric=False)
 
-    # Plot latency metrics
+    # Plot latency metrics as boxplots (showing distribution)
     create_boxplots_for_metrics(latency_metrics, is_latency_metric=True)
 
 
