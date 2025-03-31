@@ -36,6 +36,7 @@ public:
   void set_goal_handle_receive_time(rclcpp::Time time) { server_goal_receive_time_ = time; }
   void set_goal_handle_accept_time(rclcpp::Time time) { server_goal_accept_time_ = time; }
   void set_goal_processing_start_time(rclcpp::Time time) { server_goal_start_time_ = time; }
+  void set_goal_handle_cancel_time(rclcpp::Time time) { server_goal_cancel_time_ = time; }
 
 protected:
   std::shared_ptr<AnytimeWaitable> anytime_iteration_waitable_;
@@ -57,6 +58,7 @@ protected:
   rclcpp::Time server_goal_accept_time_;
   rclcpp::Time server_goal_receive_time_;
   rclcpp::Time server_goal_start_time_;
+  rclcpp::Time server_goal_cancel_time_;
 
   double average_computation_time_ = 0.0;  // Store in milliseconds
   uint64_t batch_count_ = 0;
@@ -64,6 +66,7 @@ protected:
   // callback group for compute
   rclcpp::CallbackGroup::SharedPtr compute_callback_group_;
   rclcpp::CallbackGroup::SharedPtr result_callback_group_;
+  rclcpp::CallbackGroup::SharedPtr notify_callback_group_;
 
   int batch_size_ = 1;  // Default batch size
 };

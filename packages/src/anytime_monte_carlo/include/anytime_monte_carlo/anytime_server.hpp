@@ -1,5 +1,5 @@
 #include "anytime_interfaces/action/monte_carlo.hpp"
-#include "anytime_monte_carlo/monte_carlo.hpp"
+#include "anytime_monte_carlo/anytime_management.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
@@ -24,9 +24,9 @@ private:
 
   void execute(const std::shared_ptr<AnytimeGoalHandle> goal_handle);
 
-  // factory function for monte carlo pi
-  std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> create_monte_carlo_pi(
+  // factory function for creating anytime management
+  std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> create_anytime_management(
     rclcpp::Node * node, bool is_reactive_proactive, bool is_single_multi, int batch_size);
 
-  std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> monte_carlo_pi_;
+  std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>> anytime_management_;
 };  // Added missing semicolon here
