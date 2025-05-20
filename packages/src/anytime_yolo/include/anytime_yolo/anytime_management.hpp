@@ -1,6 +1,7 @@
 #ifndef ANYTIME_MANAGEMENT_HPP
 #define ANYTIME_MANAGEMENT_HPP
 
+#include "anytime_interfaces/action/yolo.hpp"
 #include "anytime_yolo/anytime_base.hpp"
 #include "anytime_yolo/yolo.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -18,8 +19,6 @@
 // Aliases for better readability
 using Anytime = anytime_interfaces::action::Yolo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
-
-bool f16 = false;  // Flag for half precision
 
 // Anytime Management class template
 template <bool isReactiveProactive, bool isPassiveCooperative, bool isSyncAsync>
@@ -453,6 +452,8 @@ protected:
   int processed_layers_ = 0;         // Counter for processed network layers
   int result_processed_layers_ = 0;  // Counter for processed network layers in result
   rclcpp::Duration average_computation_time_{0, 0};  // in milliseconds
+
+  bool f16 = false;  // Flag for half precision
 };
 
 #endif  // ANYTIME_MANAGEMENT_HPP
