@@ -18,7 +18,7 @@
         {
             "label": "ROS2-Build",
             "type": "shell",
-            "command": "cd ${workspaceFolder}/packages && colcon build --symlink-install --allow-overriding rclcpp rclcpp_action rclcpp_components rclcpp_lifecycle --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && mv build/compile_commands.json ..",
+            "command": "cd ${workspaceFolder}/packages && colcon build --symlink-install --allow-overriding rclcpp rclcpp_action rclcpp_components rclcpp_lifecycle --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             "problemMatcher": []
         },
         {
