@@ -79,7 +79,6 @@ public:
   {
     RCLCPP_INFO(node_->get_logger(), "Reactive function called");
     compute();
-    send_feedback();
     if constexpr (!isSyncAsync) {
       notify_result();
     }
@@ -137,7 +136,6 @@ public:
 
   void proactive_result_function() override
   {
-    send_feedback();
     calculate_result();
     notify_check_finish();
   }
@@ -181,6 +179,7 @@ public:
       this_ptr->processed_layers_++;
       RCLCPP_INFO(
         this_ptr->node_->get_logger(), "Processed layers: %d", this_ptr->processed_layers_);
+      this_ptr->send_feedback();
     } else if constexpr (!isSyncAsync) {
       // sync does not call this function
     }
@@ -231,6 +230,7 @@ public:
         // Increment processed layers counter for sync mode
         processed_layers_++;
         RCLCPP_INFO(node_->get_logger(), "Processed layers: %d", processed_layers_);
+        send_feedback();
       } else if constexpr (isSyncAsync) {
         // nothing to do for async mode
       }
