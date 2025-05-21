@@ -85,13 +85,10 @@ if [[ "$mode" == "run" || "$mode" == "both" ]]; then
                         
                         echo "Running configuration: $config_name (Run $run of $num_runs)"
 
-                        # Start the video publisher in the background
-                        ros2 launch video_publisher video_publisher.launch.py > ./results/yolo/${config_name}_publisher.log & publisher_pid=$!
-
                         # Start the detection visualizer in the background
                         ros2 launch video_publisher detection_visualizer.launch.py > ./results/yolo/${config_name}_visualizer.log & visualizer_pid=$!
 
-                        # Give them time to initialize
+                        # Give it time to initialize
                         sleep 5
 
                         # Start the action server in the background
@@ -102,10 +99,10 @@ if [[ "$mode" == "run" || "$mode" == "both" ]]; then
                         # Start the action client in the background and pass result filename
                         ros2 launch anytime_yolo action_client.launch.py threading_type:=single result_filename:="${result_filename}" > "./results/yolo/${config_name}_client.log" & client_pid=$!
                         
-                        # Wait for 60 seconds
-                        sleep 60
+                        # Run the video publisher (blocking, foreground)
+                        ros2 launch video_publisher video_publisher.launch.py > ./results/yolo/${config_name}_publisher.log
 
-                        # Terminate both processes after 60 seconds
+                        # Terminate the processes after the video publisher finishes
                         kill $server_pid 2>/dev/null
                         kill $client_pid 2>/dev/null
                         kill $visualizer_pid 2>/dev/null
