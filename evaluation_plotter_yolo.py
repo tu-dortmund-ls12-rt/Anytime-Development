@@ -698,12 +698,12 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
             positions = []
             labels = []
             box_data = []
-            bar_colors = []
+            box_colors = []
 
             # Space between groups of boxplots
             group_space = 2
             # Space between boxplots in a group
-            bar_space = 0.6
+            box_space = 0.6
 
             pos = 0
             # For each batch size, plot boxplots for each configuration
@@ -714,36 +714,36 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                     if metric_name in metrics and batch_size in metrics[metric_name]:
                         data = metrics[metric_name][batch_size]
                         if len(data) > 0:
-                            current_pos = pos + j * bar_space
+                            current_pos = pos + j * box_space
                             positions.append(current_pos)
                             box_data.append(data)
-                            bar_colors.append(
+                            box_colors.append(
                                 config_colors.get(config, 'gray'))
                             labels.append(f"{config}")
 
             # Create boxplots
-            bars = ax.boxplot(box_data, positions=positions, patch_artist=True,
-                              widths=0.4, showfliers=False, notch=False)
+            boxes = ax.boxplot(box_data, positions=positions, patch_artist=True,
+                               widths=0.4, showfliers=False, notch=False)
 
             # Customize boxplot colors
-            for box, color in zip(bars['bars'], bar_colors):
+            for box, color in zip(boxes['boxes'], box_colors):
                 box.set(facecolor=color, alpha=0.6)
                 box.set(edgecolor=color, linewidth=1.5)
 
-            for whisker, color in zip(bars['whiskers'], [c for c in bar_colors for _ in range(2)]):
+            for whisker, color in zip(boxes['whiskers'], [c for c in box_colors for _ in range(2)]):
                 whisker.set(color=color, linewidth=1.5)
 
-            for cap, color in zip(bars['caps'], [c for c in bar_colors for _ in range(2)]):
+            for cap, color in zip(boxes['caps'], [c for c in box_colors for _ in range(2)]):
                 cap.set(color=color, linewidth=1.5)
 
-            for median, color in zip(bars['medians'], bar_colors):
+            for median, color in zip(boxes['medians'], box_colors):
                 median.set(color='black', linewidth=1.5)
 
             # Always show zero on y-axis
             ax.set_ylim(bottom=0)
 
             # Set x-ticks at the middle of each group
-            group_positions = [i * (len(config_colors) + group_space) + 1 + (len(config_colors) * bar_space) / 2
+            group_positions = [i * (len(config_colors) + group_space) + 1 + (len(config_colors) * box_space) / 2
                                for i in range(len(all_batch_sizes))]
 
             # Add vertical lines between batch size groups
@@ -751,9 +751,9 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                 for i in range(len(all_batch_sizes) - 1):
                     # Calculate position between current batch size group and next one
                     current_group_end = group_positions[i] + \
-                        (len(config_colors) * bar_space) / 2
+                        (len(config_colors) * box_space) / 2
                     next_group_start = group_positions[i+1] - \
-                        (len(config_colors) * bar_space) / 2
+                        (len(config_colors) * box_space) / 2
                     line_pos = (current_group_end + next_group_start) / 2
 
                     # Draw a vertical line
