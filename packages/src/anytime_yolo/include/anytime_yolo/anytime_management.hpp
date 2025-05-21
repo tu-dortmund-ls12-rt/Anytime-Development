@@ -32,26 +32,20 @@ public:
     weights_path_(weights_path),
     yolo_(weights_path, false),
     yolo_state_(std::make_unique<InferenceState>(yolo_.createInferenceState())),
-    input_cuda_buffer_(640 * 640 * 3 * (f16 ? sizeof(__half) : sizeof(float)))
+    input_cuda_buffer_(640 * 640 * 3 * (halfPrecision ? sizeof(__half) : sizeof(float)))
   {
     // callback group
     compute_callback_group_ =
-      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-    notify_callback_group_ =
       node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
     // --- Proactive Variables ---
     if constexpr (isReactiveProactive) {
       anytime_iteration_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->proactive_function(); });
-      anytime_result_waitable_ =
-        std::make_shared<AnytimeWaitable>([this]() { this->calculate_result(); });
       anytime_check_finish_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->check_cancel_and_finish_proactive(); });
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
-      node->get_node_waitables_interface()->add_waitable(
-        anytime_result_waitable_, notify_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
         anytime_check_finish_waitable_,
         node_->get_node_base_interface()->get_default_callback_group());
@@ -60,8 +54,14 @@ public:
     else {
       anytime_iteration_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->reactive_function(); });
+      anytime_check_finish_waitable_ =
+        std::make_shared<AnytimeWaitable>([this]() { this->check_cancel_and_finish_reactive(); });
+
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
+      node_->get_node_waitables_interface()->add_waitable(
+        anytime_check_finish_waitable_,
+        node_->get_node_base_interface()->get_default_callback_group());
     }
   }
 
@@ -69,31 +69,24 @@ public:
 
   void reactive_function()
   {
-    if constexpr (!isReactiveProactive) {
-      auto feedback = std::make_shared<Anytime::Feedback>();
-      feedback->processed_layers = processed_layers_;
-      goal_handle_->publish_feedback(feedback);
-      RCLCPP_DEBUG(
-        node_->get_logger(), "Proactive function feedback sent, processed layers: %d",
-        processed_layers_);
-    }
-    if (check_cancel_and_finish_reactive()) {
-      return;
-    } else {
-      compute();
+    RCLCPP_INFO(node_->get_logger(), "Reactive function called");
+    compute();
+    if constexpr (!isSyncAsync) {
+      send_feedback();
+      notify_check_finish();
     }
   }
 
-  bool check_cancel_and_finish_reactive() override
+  void check_cancel_and_finish_reactive() override
   {
-    RCLCPP_DEBUG(node_->get_logger(), "Checking cancel and finish in reactive mode");
+    RCLCPP_INFO(node_->get_logger(), "Check cancel and finish reactive function called");
     bool should_finish = yolo_state_->isCompleted();
     bool should_cancel = this->goal_handle_->is_canceling();
 
-    if (should_finish || should_cancel) {
+    if ((should_finish || should_cancel) && this->is_running()) {
       this->calculate_result();
-      this->result_->action_server_send_result = this->node_->now();
 
+      this->result_->action_server_send_result = this->node_->now();
       if (should_cancel) {
         this->goal_handle_->canceled(this->result_);
       } else {
@@ -101,16 +94,14 @@ public:
       }
 
       this->deactivate();
-      RCLCPP_DEBUG(
+      RCLCPP_INFO(
         node_->get_logger(), "Reactive function finished, should finish: %d, should cancel: %d",
         should_finish, should_cancel);
-      return true;
+    } else if (!this->is_running()) {
+      RCLCPP_INFO(node_->get_logger(), "Reactive function finished previously");
+    } else {
+      notify_iteration();
     }
-    RCLCPP_DEBUG(
-      node_->get_logger(), "Reactive function not finished, should finish: %d, should cancel: %d",
-      should_finish, should_cancel);
-
-    return false;
   }
 
   // ----------------- Proactive Functions -----------------
@@ -118,59 +109,44 @@ public:
   // proactive function to approximate Pi
   void proactive_function()
   {
-    RCLCPP_DEBUG(node_->get_logger(), "Proactive function called");
+    RCLCPP_INFO(node_->get_logger(), "Proactive function called");
     compute();
+    if constexpr (!isSyncAsync) {
+      send_feedback();
+      calculate_result();
+      notify_check_finish();
+    }
   }
 
   void check_cancel_and_finish_proactive() override
   {
-    RCLCPP_DEBUG(node_->get_logger(), "Checking cancel and finish in proactive mode");
-
-    // Print number of detected objects and processed layers
-    RCLCPP_DEBUG(
-      node_->get_logger(), "Detected objects: %zu, Processed layers: %d",
-      this->result_->detections.size(), processed_layers_);
+    RCLCPP_INFO(node_->get_logger(), "Check cancel and finish proactive function called");
     bool should_finish = yolo_state_->isCompleted();
     bool should_cancel = this->goal_handle_->is_canceling() || !this->goal_handle_->is_executing();
 
-    if (should_finish && !should_cancel) {
-      calculate_result();
-    }
-
     if ((should_finish || should_cancel) && this->is_running()) {
       this->result_->action_server_send_result = this->node_->now();
-
       if (should_cancel) {
         this->goal_handle_->canceled(this->result_);
       } else {
         this->goal_handle_->succeed(this->result_);
       }
-      RCLCPP_DEBUG(
+      this->deactivate();
+      RCLCPP_INFO(
         node_->get_logger(), "Proactive function finished, should finish: %d, should cancel: %d",
         should_finish, should_cancel);
-      this->deactivate();
-      return;
     } else if (!this->is_running()) {
-      RCLCPP_DEBUG(
-        node_->get_logger(), "Proactive function not running, should finish: %d, should cancel: %d",
-        should_finish, should_cancel);
-      return;
+      RCLCPP_INFO(node_->get_logger(), "Proactive function finished previously");
+    } else {
+      notify_iteration();
     }
-    RCLCPP_DEBUG(
-      node_->get_logger(), "Proactive function not finished, should finish: %d, should cancel: %d",
-      should_finish, should_cancel);
-    notify_iteration();
-    notify_result();
   }
 
-  // ----------------- Common Functions -----------------
+  // ---------------- CUDA Function -----------------
 
-  void start() override { notify_iteration(); }
-
-  // Change to static method for CUDA callback compatibility
   static void CUDART_CB forward_finished_callback(void * userData)
   {
-    RCLCPP_DEBUG(
+    RCLCPP_INFO(
       static_cast<AnytimeManagement *>(userData)->node_->get_logger(), "Forward finished");
 
     auto this_ptr = static_cast<AnytimeManagement *>(userData);
@@ -178,32 +154,30 @@ public:
     if constexpr (isSyncAsync) {
       // Increment processed layers counter for async mode
       this_ptr->processed_layers_++;
-      RCLCPP_DEBUG(
+      RCLCPP_INFO(
         this_ptr->node_->get_logger(), "Processed layers: %d", this_ptr->processed_layers_);
-
     } else if constexpr (!isSyncAsync) {
       // sync does not call this function
     }
 
-    // Notify the waitable
-    if constexpr (!isReactiveProactive) {
-      if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
-        RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Notifying iteration from callback function");
-        this_ptr->notify_iteration();
-      } else {
-        // nothing to do for reactive mode
-      }
-    } else if constexpr (isReactiveProactive) {
-      if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
-        RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Calculating result from callback function");
-        this_ptr->notify_check_finish();
-      }
+    if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
+      RCLCPP_INFO(this_ptr->node_->get_logger(), "Calculating result from callback function");
+      this_ptr->send_feedback();
+      this_ptr->notify_check_finish();
     }
+  }
+
+  // ----------------- Common Functions -----------------
+
+  void start() override
+  {
+    RCLCPP_INFO(node_->get_logger(), "Start function called");
+    notify_iteration();
   }
 
   void compute() override
   {
-    RCLCPP_DEBUG(node_->get_logger(), "Computing");
+    RCLCPP_INFO(node_->get_logger(), "Compute function called");
 
     // Start timing
     auto start_time = this->node_->now();
@@ -211,10 +185,8 @@ public:
     // Determine synchronicity before the loop
     constexpr bool is_sync_async = isSyncAsync;
 
-    // void (*callback)(void *) = isPassiveCooperative ? forward_finished_callback : nullptr;
-
     for (int i = 0; i < batch_size_; i++) {
-      RCLCPP_DEBUG(node_->get_logger(), "Computing batch part %d", i);
+      RCLCPP_INFO(node_->get_logger(), "Computing batch part %d", i);
 
       void (*callback)(void *);
       if constexpr (!isSyncAsync) {
@@ -222,28 +194,28 @@ public:
       } else if constexpr (isSyncAsync) {
         callback = forward_finished_callback;
       }
-      RCLCPP_DEBUG(node_->get_logger(), "Callback function is null: %d", callback == nullptr);
-      RCLCPP_DEBUG(node_->get_logger(), "Calling inferStep");
+      RCLCPP_INFO(node_->get_logger(), "Callback function is null: %d", callback == nullptr);
+      RCLCPP_INFO(node_->get_logger(), "Calling inferStep");
 
       yolo_.inferStep(*yolo_state_, is_sync_async, callback, this);
 
-      RCLCPP_DEBUG(node_->get_logger(), "Finished batch part %d", i);
+      RCLCPP_INFO(node_->get_logger(), "Finished batch part %d", i);
 
       if constexpr (!isSyncAsync) {
         // Increment processed layers counter for sync mode
         processed_layers_++;
-        RCLCPP_DEBUG(node_->get_logger(), "Processed layers: %d", processed_layers_);
+        RCLCPP_INFO(node_->get_logger(), "Processed layers: %d", processed_layers_);
       } else if constexpr (isSyncAsync) {
         // nothing to do for async mode
       }
     }
-    RCLCPP_DEBUG(node_->get_logger(), "Finished computing");
+    RCLCPP_INFO(node_->get_logger(), "Finished computing");
 
     // End timing
     auto end_time = this->node_->now();
     // Calculate computation time for this batch
     rclcpp::Duration computation_time = end_time - start_time;
-    RCLCPP_DEBUG(
+    RCLCPP_INFO(
       node_->get_logger(), "Batch computation time: %f ms", computation_time.nanoseconds() / 1e6);
 
     // Update the average computation time
@@ -255,32 +227,35 @@ public:
         average_computation_time_.nanoseconds() +
         (computation_time.nanoseconds() - average_computation_time_.nanoseconds()) / batch_count_));
     }
+  }
 
-    if constexpr (!isSyncAsync) {
-      if constexpr (!isReactiveProactive) {
-        RCLCPP_DEBUG(node_->get_logger(), "Notifying iteration");
-        notify_iteration();
-      } else if constexpr (isReactiveProactive) {
-        RCLCPP_DEBUG(node_->get_logger(), "Notifying check finish");
-        notify_check_finish();
-      }
-    } else if constexpr (isSyncAsync) {
-      // nothing to do for async mode
-    }
+  void send_feedback() override
+  {
+    RCLCPP_INFO(node_->get_logger(), "Send feedback function called");
+    auto feedback = std::make_shared<Anytime::Feedback>();
+    // --- CUSTOM ---
+    feedback->processed_layers = processed_layers_;
+    // --- CUSTOM ---
+    RCLCPP_INFO(node_->get_logger(), "Sending feedback, processed layers: %d", processed_layers_);
+    this->goal_handle_->publish_feedback(feedback);
+    RCLCPP_INFO(
+      node_->get_logger(), "Proactive function feedback sent, processed layers: %d",
+      processed_layers_);
   }
 
   void calculate_result() override
   {
+    RCLCPP_INFO(node_->get_logger(), "Calculate result function called");
     auto new_result = std::make_shared<Anytime::Result>();
 
-    RCLCPP_DEBUG(node_->get_logger(), "Calculating result");
+    RCLCPP_INFO(node_->get_logger(), "Calculating result");
     result_processed_layers_ = processed_layers_;
     std::vector<float> yolo_result;
     if constexpr (isReactiveProactive) {
-      RCLCPP_DEBUG(node_->get_logger(), "Calculating latest exit");
+      RCLCPP_INFO(node_->get_logger(), "Calculating latest exit");
       yolo_result = yolo_.calculateLatestExit(*yolo_state_);
     } else if constexpr (!isReactiveProactive) {
-      RCLCPP_DEBUG(node_->get_logger(), "Finishing early");
+      RCLCPP_INFO(node_->get_logger(), "Finishing early");
       yolo_result = yolo_.finishEarly(*yolo_state_);
     }
 
@@ -340,42 +315,21 @@ public:
     new_result->action_server_cancel = this->result_->action_server_cancel;
 
     this->result_ = new_result;
-
-    if (!goal_handle_) {
-      RCLCPP_ERROR(node_->get_logger(), "Goal handle is null, cannot publish result");
-      return;
-    }
-
-    if constexpr (isReactiveProactive) {
-      auto feedback = std::make_shared<Anytime::Feedback>();
-      feedback->processed_layers = result_processed_layers_;
-      this->goal_handle_->publish_feedback(feedback);
-      RCLCPP_DEBUG(
-        node_->get_logger(), "Proactive function feedback sent, processed layers: %d",
-        result_processed_layers_);
-    }
-
-    // if constexpr (isSyncAsync && isReactiveProactive) {
-    //   // Notify the waitable for async mode
-    //   RCLCPP_DEBUG(node_->get_logger(), "Notifying iteration from calculate_result function");
-    //   notify_iteration();
-    // }
   }
 
   // Cancel function
   void notify_cancel() override
   {
     this->result_->action_server_cancel = this->node_->now();
-    if constexpr (isReactiveProactive) {
-      notify_check_finish();
-    } else if constexpr (!isReactiveProactive) {
-      // nothing to do for reactive mode
-    }
+    RCLCPP_INFO(node_->get_logger(), "Notify cancel function");
+    notify_check_finish();
+    RCLCPP_INFO(node_->get_logger(), "Notify cancel function finished");
   }
 
   // Reset function
   void reset() override
   {
+    RCLCPP_INFO(node_->get_logger(), "Reset function called");
     this->result_ = std::make_shared<Anytime::Result>();
 
     // Process image data from the goal handle
@@ -445,15 +399,13 @@ protected:
   std::unique_ptr<InferenceState> yolo_state_;  // YOLO inference state as pointer
   CudaHostBuffer input_cuda_buffer_;            // Input image buffer
 
-  bool halfPrecision;  // Flag for half precision
+  bool halfPrecision = false;  // Flag for half precision
 
   // Batch count and average computation time
   int batch_count_ = 0;
   int processed_layers_ = 0;         // Counter for processed network layers
   int result_processed_layers_ = 0;  // Counter for processed network layers in result
   rclcpp::Duration average_computation_time_{0, 0};  // in milliseconds
-
-  bool f16 = false;  // Flag for half precision
 };
 
 #endif  // ANYTIME_MANAGEMENT_HPP

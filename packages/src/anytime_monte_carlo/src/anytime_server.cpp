@@ -78,7 +78,6 @@ rclcpp_action::GoalResponse AnytimeActionServer::handle_goal(
 rclcpp_action::CancelResponse AnytimeActionServer::handle_cancel(
   const std::shared_ptr<AnytimeGoalHandle> goal_handle)
 {
-  anytime_management_->set_goal_handle_cancel_time(this->now());
   RCLCPP_INFO(this->get_logger(), "Received cancel request");
   (void)goal_handle;  // Suppress unused variable warning
 
