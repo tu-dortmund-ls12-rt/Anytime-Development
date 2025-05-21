@@ -79,6 +79,7 @@ public:
   {
     RCLCPP_INFO(node_->get_logger(), "Reactive function called");
     compute();
+    send_feedback();
     if constexpr (!isSyncAsync) {
       notify_result();
     }
@@ -87,8 +88,15 @@ public:
   void reactive_result_function() override
   {
     RCLCPP_INFO(node_->get_logger(), "Reactive result function called");
-    send_feedback();
-    notify_check_finish();
+    bool should_finish = yolo_state_->isCompleted();
+    bool should_cancel = this->goal_handle_->is_canceling();
+
+    if ((should_finish || should_cancel) && this->is_running()) {
+      this->calculate_result();
+      this->notify_check_finish();
+    } else if (this->is_running()) {
+      this->notify_iteration();
+    }
   }
 
   void check_cancel_and_finish_reactive() override
@@ -98,8 +106,6 @@ public:
     bool should_cancel = this->goal_handle_->is_canceling();
 
     if ((should_finish || should_cancel) && this->is_running()) {
-      this->calculate_result();
-
       this->result_->action_server_cancel = this->server_goal_cancel_time_;
       this->result_->action_server_send_result = this->node_->now();
       if (should_cancel) {
@@ -114,8 +120,6 @@ public:
         should_finish, should_cancel);
     } else if (!this->is_running()) {
       RCLCPP_INFO(node_->get_logger(), "Reactive function finished previously");
-    } else {
-      notify_iteration();
     }
   }
 
@@ -344,7 +348,11 @@ public:
   {
     this->server_goal_cancel_time_ = this->node_->now();
     RCLCPP_INFO(node_->get_logger(), "Notify cancel function");
-    notify_check_finish();
+    if constexpr (isReactiveProactive) {
+      this->notify_check_finish();
+    } else if constexpr (!isReactiveProactive) {
+      this->notify_result();
+    }
     RCLCPP_INFO(node_->get_logger(), "Notify cancel function finished");
   }
 

@@ -29,10 +29,14 @@ public:
     if constexpr (isReactiveProactive) {
       anytime_iteration_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->proactive_function(); });
+      anytime_result_waitable_ =
+        std::make_shared<AnytimeWaitable>([this]() { this->proactive_result_function(); });
       anytime_check_finish_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->check_cancel_and_finish_proactive(); });
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
+      node_->get_node_waitables_interface()->add_waitable(
+        anytime_result_waitable_, compute_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
         anytime_check_finish_waitable_,
         node_->get_node_base_interface()->get_default_callback_group());
@@ -41,11 +45,15 @@ public:
     else {
       anytime_iteration_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->reactive_function(); });
+      anytime_result_waitable_ =
+        std::make_shared<AnytimeWaitable>([this]() { this->reactive_result_function(); });
       anytime_check_finish_waitable_ =
         std::make_shared<AnytimeWaitable>([this]() { this->check_cancel_and_finish_reactive(); });
 
       node_->get_node_waitables_interface()->add_waitable(
         anytime_iteration_waitable_, compute_callback_group_);
+      node_->get_node_waitables_interface()->add_waitable(
+        anytime_result_waitable_, compute_callback_group_);
       node_->get_node_waitables_interface()->add_waitable(
         anytime_check_finish_waitable_,
         node_->get_node_base_interface()->get_default_callback_group());
@@ -59,7 +67,21 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Reactive function called");
     compute();
     send_feedback();
-    notify_check_finish();
+    notify_result();
+  }
+
+  void reactive_result_function() override
+  {
+    RCLCPP_INFO(node_->get_logger(), "Reactive result function called");
+    bool should_finish = loop_count_ >= this->goal_handle_->get_goal()->goal;
+    bool should_cancel = this->goal_handle_->is_canceling();
+
+    if ((should_finish || should_cancel) && this->is_running()) {
+      this->calculate_result();
+      this->notify_check_finish();
+    } else if (this->is_running()) {
+      this->notify_iteration();
+    }
   }
 
   void check_cancel_and_finish_reactive() override
@@ -69,8 +91,6 @@ public:
     bool should_cancel = this->goal_handle_->is_canceling();
 
     if ((should_finish || should_cancel) && this->is_running()) {
-      this->calculate_result();
-
       this->result_->action_server_cancel = this->server_goal_cancel_time_;
       this->result_->action_server_send_result = this->node_->now();
       if (should_cancel) {
@@ -84,9 +104,7 @@ public:
         node_->get_logger(), "Reactive function finished, should finish: %d, should cancel: %d",
         should_finish, should_cancel);
     } else if (!this->is_running()) {
-      RCLCPP_DEBUG(node_->get_logger(), "Reactive function finished previously");
-    } else {
-      notify_iteration();
+      RCLCPP_INFO(node_->get_logger(), "Reactive function finished previously");
     }
   }
 
@@ -97,6 +115,11 @@ public:
   {
     RCLCPP_INFO(node_->get_logger(), "Proactive function called");
     compute();
+    notify_result();
+  }
+
+  void proactive_result_function() override
+  {
     send_feedback();
     calculate_result();
     notify_check_finish();
@@ -206,7 +229,11 @@ public:
   {
     server_goal_cancel_time_ = this->node_->now();
     RCLCPP_INFO(node_->get_logger(), "Notify cancel function");
-    notify_check_finish();
+    if constexpr (isReactiveProactive) {
+      this->notify_check_finish();
+    } else if constexpr (!isReactiveProactive) {
+      this->notify_result();
+    }
     RCLCPP_INFO(node_->get_logger(), "Notify cancel function finished");
   }
 
