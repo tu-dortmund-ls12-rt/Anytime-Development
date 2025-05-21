@@ -19,13 +19,21 @@
             "label": "ROS2-Build",
             "type": "shell",
             "command": "cd ${workspaceFolder}/packages && colcon build --symlink-install --allow-overriding rclcpp rclcpp_action rclcpp_components rclcpp_lifecycle --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "ROS2-Build-No-Cuda",
             "type": "shell",
             "command": "cd ${workspaceFolder}/packages && colcon build --symlink-install --packages-select vision_msgs rclcpp rclcpp_action rclcpp_components rclcpp_lifecycle anytime_interfaces anytime_monte_carlo --allow-overriding rclcpp rclcpp_action rclcpp_components rclcpp_lifecycle --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && mv build/compile_commands.json ..",
-            "problemMatcher": []
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
         },
         {
             "label": "ROS2-Video-Publisher",
@@ -103,11 +111,7 @@
                 "reveal": "always",
                 "panel": "new"
             },
-            "problemMatcher": [],
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            }
+            "problemMatcher": []
         },
         {
             "label": "ROS2-Download-Weights",
