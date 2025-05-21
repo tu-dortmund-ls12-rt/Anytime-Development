@@ -54,7 +54,7 @@ public:
 
   // ----------------- Reactive Functions -----------------
 
-  void reactive_function()
+  void reactive_function() override
   {
     RCLCPP_INFO(node_->get_logger(), "Reactive function called");
     compute();
@@ -92,7 +92,7 @@ public:
   // ----------------- Proactive Functions -----------------
 
   // proactive function to approximate Pi
-  void proactive_function()
+  void proactive_function() override
   {
     RCLCPP_INFO(node_->get_logger(), "Proactive function called");
     compute();
