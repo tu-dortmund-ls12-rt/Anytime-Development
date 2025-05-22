@@ -461,9 +461,8 @@ protected:
 
   AnytimeYOLO yolo_;
   std::unique_ptr<InferenceState> yolo_state_;  // YOLO inference state as pointer
+  bool halfPrecision = false;                   // Flag for half precision
   CudaHostBuffer input_cuda_buffer_;            // Input image buffer
-
-  bool halfPrecision = false;  // Flag for half precision
 
   // Batch count and average computation time
   int batch_count_ = 0;
