@@ -129,10 +129,38 @@ void AnytimeActionClient::feedback_callback(
   // Log the feedback message
   RCLCPP_DEBUG(this->get_logger(), "Feedback received");
   RCLCPP_DEBUG(this->get_logger(), "Processed layers: %d", feedback->processed_layers);
-  if (feedback->processed_layers >= cancel_after_layers_ && !is_cancelling_) {
-    RCLCPP_DEBUG(this->get_logger(), "Notifying cancel waitable");
-    cancel_waitable_->notify();
+
+  // Print information about detections with highest score
+  if (!feedback->detections.empty()) {
+    // Find detection with the highest score
+    const auto & detections = feedback->detections;
+
+    // For each detection, find the result with the highest score
+    for (size_t i = 0; i < detections.size(); ++i) {
+      const auto & detection = detections[i];
+
+      if (detection.results.empty()) {
+        continue;
+      }
+
+      // Find the result with the highest score in this detection
+      auto highest_score_result = std::max_element(
+        detection.results.begin(), detection.results.end(),
+        [](const auto & a, const auto & b) { return a.hypothesis.score < b.hypothesis.score; });
+
+      // Print the highest score and its class ID
+      RCLCPP_INFO(
+        this->get_logger(), "Detection %zu: Class ID = %s, Score = %.3f", i,
+        highest_score_result->hypothesis.class_id.c_str(), highest_score_result->hypothesis.score);
+    }
+  } else {
+    RCLCPP_DEBUG(this->get_logger(), "No detections in feedback");
   }
+
+  // if (feedback->processed_layers >= cancel_after_layers_ && !is_cancelling_) {
+  //   RCLCPP_DEBUG(this->get_logger(), "Notifying cancel waitable");
+  //   cancel_waitable_->notify();
+  // }
 }
 
 void AnytimeActionClient::cancel_callback()
