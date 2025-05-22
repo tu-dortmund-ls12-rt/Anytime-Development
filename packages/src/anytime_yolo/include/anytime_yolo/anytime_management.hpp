@@ -194,7 +194,10 @@ public:
       // sync does not call this function
     }
 
-    if (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) {
+    // Call when processed_layers_ is a multiple of batch_size_ or when reaching/exceeding 25
+    if (
+      (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) ||
+      (this_ptr->processed_layers_ >= 25)) {
       RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Calculating result from callback function");
       if constexpr (isSyncAsync) {
         this_ptr->notify_result();
@@ -220,7 +223,10 @@ public:
     // Determine synchronicity before the loop
     constexpr bool is_sync_async = isSyncAsync;
 
-    for (int i = 0; i < batch_size_; i++) {
+    int max_layers = 25;
+    int layers_left = max_layers - processed_layers_;
+    int iterations = std::min(batch_size_, layers_left);
+    for (int i = 0; i < iterations; i++) {
       if (
         this->goal_handle_->is_canceling() || !this->goal_handle_->is_executing() ||
         !this->is_running()) {

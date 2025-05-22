@@ -176,7 +176,7 @@ void AnytimeActionClient::feedback_callback(
           [](const auto & a, const auto & b) { return a.hypothesis.score < b.hypothesis.score; });
         if (
           highest_score_result->hypothesis.score >= 0.8 &&
-          highest_score_result->hypothesis.class_id == "9") {
+          highest_score_result->hypothesis.class_id == "9" && !is_cancelling_) {
           RCLCPP_INFO(
             this->get_logger(), "Canceling goal due to high score for id 9 after %d layers",
             feedback->processed_layers);
