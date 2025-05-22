@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import sys
 import os
 import glob
@@ -8,12 +9,12 @@ import argparse
 
 # Add this after the imports to increase font size globally
 plt.rcParams.update({
-    'font.size': 22,
+    'font.size': 32,
     'axes.titlesize': 24,
-    'axes.labelsize': 22,
-    'xtick.labelsize': 20,
-    'ytick.labelsize': 20,
-    'legend.fontsize': 20,
+    'axes.labelsize': 64,
+    'xtick.labelsize': 54,
+    'ytick.labelsize': 48,
+    'legend.fontsize': 36,
 })
 
 
@@ -557,7 +558,8 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
 
             # Create figure with appropriate size
             fig, ax = plt.subplots(
-                figsize=(max(12, len(all_batch_sizes) * 2.5), 8))
+                # figsize=(max(12, len(all_batch_sizes) * 2.5), 8))
+                figsize=(6*2.4, 10))
 
             # Define width of bars and positions
             n_configs = len(config_colors)
@@ -618,8 +620,10 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
                     )
 
             # Set x-ticks at the middle of each group
-            ax.set_xticks(group_positions)
-            ax.set_xticklabels([str(bs) for bs in all_batch_sizes])
+            ax.set_xticks(group_positions,labels=[
+                r'$2^{' + str(int(np.log2(bs))) + '}$' for bs in all_batch_sizes])
+
+            ax.tick_params(axis='x', pad=12)
 
             # Add vertical grid lines between batch size groups
             if len(all_batch_sizes) > 1:
@@ -637,13 +641,14 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             if is_latency_metric:
                 plt.ylabel('Time (ms)')
             else:
-                plt.ylabel(f'{metric_name.replace("_", " ").title()}')
+                plt.ylabel(f'{metric_name.replace("_", " ").title()} (1e6)')
 
             # No title
             plt.grid(True, axis='y')
 
             # Add legend for configurations
             # plt.legend(loc='best')
+            ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{x*1e-6:.1f}'))
 
             # Adjust layout for better display
             plt.tight_layout()
@@ -800,7 +805,8 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
 
             # Create figure with appropriate size
             fig, ax = plt.subplots(
-                figsize=(max(12, len(all_batch_sizes) * 2), 8))
+                # figsize=(max(12, len(all_batch_sizes) * 2.3), 8))
+                figsize=(6*2.4, 10))
 
             # Track positions for bar charts and labels
             positions = []
@@ -809,9 +815,9 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             bar_colors = []
 
             # Space between groups of bar charts
-            group_space = 2
+            group_space = 1
             # Space between bar charts in a group
-            bar_space = 0.6
+            bar_space = 0.8
 
             pos = 0
             # For each batch size, plot bar charts for each configuration
@@ -848,7 +854,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
                 bar = ax.bar(
                     positions,
                     level_means,
-                    width=0.4,
+                    width=0.75,
                     bottom=prev_heights,
                     color=bar_colors,
                     alpha=0.6 if stack_idx == 0 else 0.3,
@@ -892,8 +898,12 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
                     # Draw a vertical line
                     plt.axvline(x=line_pos, color='gray',
                                 linestyle='--', alpha=0.5)
-            ax.set_xticks(group_positions)
-            ax.set_xticklabels([str(bs) for bs in all_batch_sizes])
+
+            ax.set_xticks(group_positions,labels=[
+                r'$2^{' + str(int(np.log2(bs))) + '}$' for bs in all_batch_sizes])
+
+            ax.tick_params(axis='x', pad=12)
+            
             # Add block size labels instead of batch size
             plt.xlabel('Block Size')
             # Set y-axis label based on metric type
