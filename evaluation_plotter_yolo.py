@@ -548,6 +548,35 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
         'multi-proactive-async': 'plum'
     }
 
+    def save_legend_as_image(ax, output_dir, filename, nrows=2):
+        """
+        Save the legend of a plot as a separate image file.
+
+        Args:
+            ax: The axis object containing the legend.
+            output_dir: Directory to save the legend image.
+            filename: Name of the legend image file.
+            nrows: Number of rows for the legend.
+        """
+        legend = ax.get_legend()
+        if legend:
+            # Create a new figure for the legend
+            fig_legend = plt.figure(figsize=(10, nrows * 0.5))
+            ax_legend = fig_legend.add_subplot(111)
+            ax_legend.axis('off')
+
+            # Add the legend to the new figure
+            handles, labels = ax.get_legend_handles_labels()
+            # Ensure ncol is at least 1
+            ncol = max(1, len(labels) // nrows)
+            ax_legend.legend(handles, labels, loc='center', ncol=ncol)
+
+            # Save the legend as an image
+            legend_path = f"{output_dir}/{filename}_legend.pdf"
+            fig_legend.savefig(legend_path, bbox_inches='tight')
+            plt.close(fig_legend)
+            print(f"Saved legend to {legend_path}")
+
     def create_bar_charts_for_metrics(metrics_list, is_latency_metric=False):
         """
         Helper function to create bar charts with error bars for a list of metrics
@@ -658,8 +687,8 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
 
             plt.grid(True, axis='y')
 
-            # Add legend for configurations
-            plt.legend(loc='best')
+            # # Add legend for configurations
+            # plt.legend(loc='best')
 
             # Adjust layout for better display
             plt.tight_layout()
@@ -669,6 +698,9 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
             plt.savefig(filename)
             plt.close()
             print(f"Saved bar chart to {filename}")
+
+            # Save the legend as a separate image
+            save_legend_as_image(ax, output_dir, metric_name)
 
     def create_boxplots_for_metrics(metrics_list, is_latency_metric=False):
         """
@@ -782,7 +814,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
             legend_handles = [plt.Rectangle((0, 0), 1, 1, color=color, alpha=0.6)
                               for color in config_colors.values()]
             legend_labels = list(config_colors.keys())
-            plt.legend(legend_handles, legend_labels, loc='best')
+            # plt.legend(legend_handles, legend_labels, loc='best')
 
             # Adjust layout for better display
             plt.tight_layout()
@@ -792,6 +824,9 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
             plt.savefig(filename)
             plt.close()
             print(f"Saved boxplot to {filename}")
+
+            # Save the legend as a separate image
+            save_legend_as_image(ax, output_dir, metric_name)
 
     def create_stacked_bar_charts_for_metrics(metrics_list, is_latency_metric=False):
         # Helper function to create stacked bar charts for a list of metrics
@@ -924,7 +959,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                               for color in config_colors.values()]
 
             legend_labels = list(config_colors.keys())
-            plt.legend(legend_handles, legend_labels, loc='best')
+            # plt.legend(legend_handles, legend_labels, loc='best')
             # Adjust layout for better display
             plt.tight_layout()
             # Save the plot
@@ -932,6 +967,9 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
             plt.savefig(filename)
             plt.close()
             print(f"Saved stacked boxplot to {filename}")
+
+            # Save the legend as a separate image
+            save_legend_as_image(ax, output_dir, stack[0])
 
     # Plot regular performance metrics as bar charts with error bars
     create_bar_charts_for_metrics(metrics_to_compare, is_latency_metric=False)

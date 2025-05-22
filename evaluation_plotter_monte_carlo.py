@@ -506,6 +506,35 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
         'multi-proactive': 'purple'
     }
 
+    def save_legend_as_image(ax, output_dir, filename, nrows=2):
+        """
+        Save the legend of a plot as a separate image file.
+
+        Args:
+            ax: The axis object containing the legend.
+            output_dir: Directory to save the legend image.
+            filename: Name of the legend image file.
+            nrows: Number of rows for the legend.
+        """
+        legend = ax.get_legend()
+        if legend:
+            # Create a new figure for the legend
+            fig_legend = plt.figure(figsize=(10, nrows * 0.5))
+            ax_legend = fig_legend.add_subplot(111)
+            ax_legend.axis('off')
+
+            # Add the legend to the new figure
+            handles, labels = ax.get_legend_handles_labels()
+            # Ensure ncol is at least 1
+            ncol = max(1, len(labels) // nrows)
+            ax_legend.legend(handles, labels, loc='center', ncol=ncol)
+
+            # Save the legend as an image
+            legend_path = f"{output_dir}/{filename}_legend.pdf"
+            fig_legend.savefig(legend_path, bbox_inches='tight')
+            plt.close(fig_legend)
+            print(f"Saved legend to {legend_path}")
+
     def create_bar_charts_for_metrics(metrics_list, is_latency_metric=False):
         """
         Helper function to create bar charts with error bars for a list of metrics
@@ -614,7 +643,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             plt.grid(True, axis='y')
 
             # Add legend for configurations
-            plt.legend(loc='best')
+            # plt.legend(loc='best')
 
             # Adjust layout for better display
             plt.tight_layout()
@@ -624,6 +653,9 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             plt.savefig(filename)
             plt.close()
             print(f"Saved bar chart to {filename}")
+
+            # Save the legend as a separate image
+            save_legend_as_image(ax, output_dir, metric_name)
 
     def create_boxplots_for_metrics(metrics_list, is_latency_metric=False):
         """
@@ -733,7 +765,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             legend_handles = [plt.Rectangle((0, 0), 1, 1, color=color, alpha=0.6)
                               for color in config_colors.values()]
             legend_labels = list(config_colors.keys())
-            plt.legend(legend_handles, legend_labels, loc='best')
+            # plt.legend(legend_handles, legend_labels, loc='best')
 
             # Adjust layout for better display
             plt.tight_layout()
@@ -744,11 +776,160 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
             plt.close()
             print(f"Saved boxplot to {filename}")
 
+            # Save the legend as a separate image
+            save_legend_as_image(ax, output_dir, metric_name)
+
+    def create_stacked_bar_charts_for_metrics(metrics_list, is_latency_metric=False):
+        # Helper function to create stacked bar charts for a list of metrics
+
+        latency_stacks = [['client_start_cancel', 'total_client_cancel']]
+
+        for stack in latency_stacks:
+            print(f"Creating stacked bar chart for metrics: {stack}")
+
+            # Get all batch sizes that have data
+            all_batch_sizes = sorted(set(bs for config in all_data.values()
+                                         if stack[0] in config
+                                         for bs in config[stack[0]].keys()))
+
+            print(f"All batch sizes: {all_batch_sizes}")
+
+            if not all_batch_sizes:
+                print(f"No data available for metrics {stack}")
+                continue
+
+            # Create figure with appropriate size
+            fig, ax = plt.subplots(
+                figsize=(max(12, len(all_batch_sizes) * 2), 8))
+
+            # Track positions for bar charts and labels
+            positions = []
+            labels = []
+            bar_data = []
+            bar_colors = []
+
+            # Space between groups of bar charts
+            group_space = 2
+            # Space between bar charts in a group
+            bar_space = 0.6
+
+            pos = 0
+            # For each batch size, plot bar charts for each configuration
+            for i, batch_size in enumerate(all_batch_sizes):
+                pos = i * (len(config_colors) + group_space) + 1
+
+                for j, (config, metrics) in enumerate(sorted(all_data.items())):
+                    if stack[0] in metrics and batch_size in metrics[stack[0]]:
+                        data1 = metrics[stack[0]][batch_size]
+                        data2 = metrics[stack[1]][batch_size]
+                        if len(data1) > 0 and len(data2) > 0:
+                            current_pos = pos + j * bar_space
+                            positions.append(current_pos)
+                            bar_data.append([data1, data2])
+                            bar_colors.append(
+                                config_colors.get(config, 'gray'))
+                            labels.append(f"{config}")
+
+            # Create stacked bar charts
+            # Draw stacked bar charts by plotting each bar charts individually and stacking them
+            bars = []
+            prev_heights = np.zeros(len(positions))
+            n_stacks = len(stack)
+            for stack_idx in range(n_stacks):
+                # For each stack level, collect the data for all configs/batch_sizes at this level
+                level_data = [data[stack_idx] for data in bar_data]
+                # Calculate the mean for this level
+                level_means = np.array(
+                    [np.mean(d) if len(d) > 0 else 0 for d in level_data])
+                # Calculate the std for error bars
+                level_stds = np.array(
+                    [np.std(d) if len(d) > 0 else 0 for d in level_data])
+                # Plot the bar for this stack level
+                bar = ax.bar(
+                    positions,
+                    level_means,
+                    width=0.4,
+                    bottom=prev_heights,
+                    color=bar_colors,
+                    alpha=0.6 if stack_idx == 0 else 0.9,
+                    label=stack[stack_idx].replace('_', ' ').title(
+                    ) if stack_idx < len(stack) else f"Stack {stack_idx+1}"
+                )
+                # # Add error bars at the top of the current bar
+                # ax.errorbar(
+                #     positions,
+                #     prev_heights + level_means,
+                #     yerr=level_stds,
+                #     fmt='none',
+                #     color='black',
+                #     capsize=3
+                # )
+                bars.append(bar)
+                # Update prev_heights for next stack level
+                prev_heights += level_means
+
+            # Customize bar colors for the first stack level
+            for rect, color in zip(bars[0], bar_colors):
+                rect.set_facecolor(color)
+                rect.set_alpha(0.6)
+                rect.set_edgecolor(color)
+                rect.set_linewidth(1.5)
+            # Always show zero on y-axis
+            ax.set_ylim(bottom=0)
+            # Set x-ticks at the middle of each group
+            group_positions = [i * (len(config_colors) + group_space) + 1 + (len(config_colors) * bar_space) / 2
+                               for i in range(len(all_batch_sizes))]
+            # Add vertical lines between batch size groups
+            if len(all_batch_sizes) > 1:
+                for i in range(len(all_batch_sizes) - 1):
+                    # Calculate position between current batch size group and next one
+                    current_group_end = group_positions[i] + \
+                        (len(config_colors) * bar_space) / 2
+                    next_group_start = group_positions[i+1] - \
+                        (len(config_colors) * bar_space) / 2
+                    line_pos = (current_group_end + next_group_start) / 2
+
+                    # Draw a vertical line
+                    plt.axvline(x=line_pos, color='gray',
+                                linestyle='--', alpha=0.5)
+            ax.set_xticks(group_positions)
+            ax.set_xticklabels([str(bs) for bs in all_batch_sizes])
+            # Add block size labels instead of batch size
+            plt.xlabel('Block Size')
+            # Set y-axis label based on metric type
+            if is_latency_metric:
+                plt.ylabel('Time (ms)')
+            else:
+                plt.ylabel(f'{stack[0].replace("_", " ").title()}')
+            # Remove title
+            # plt.title(
+            #     f'{stack[0].replace("_", " ").title()} vs Batch Size - All Configurations (Combined Runs)')
+            plt.grid(True, axis='y')
+            # Add legend for configurations
+            legend_handles = [plt.Rectangle((0, 0), 1, 1, color=color, alpha=0.6)
+                              for color in config_colors.values()]
+
+            legend_labels = list(config_colors.keys())
+            # plt.legend(legend_handles, legend_labels, loc='best')
+            # Adjust layout for better display
+            plt.tight_layout()
+            # Save the plot
+            filename = f'{output_dir}/{stack[0]}_stacked_boxplot_batch_size_combined.pdf'
+            plt.savefig(filename)
+            plt.close()
+            print(f"Saved stacked boxplot to {filename}")
+
+            # Save the legend as a separate image
+            save_legend_as_image(ax, output_dir, stack[0])
+
     # Plot regular performance metrics as bar charts with error bars
     create_bar_charts_for_metrics(metrics_to_compare, is_latency_metric=False)
 
     # Plot latency metrics as boxplots (showing distribution)
     create_boxplots_for_metrics(latency_metrics, is_latency_metric=True)
+
+    create_stacked_bar_charts_for_metrics(
+        latency_metrics, is_latency_metric=True)
 
 
 def main():
@@ -794,7 +975,7 @@ def main():
                 file_pattern = f"{args.results_dir}/anytime_raw_timestamps_batch_{batch_size}_{reactive}_{threading}_run1.csv"
 
                 # Plot combined data from all runs
-                plot_raw_timestamps(file_pattern, output_dir, args.cut_samples)
+                # plot_raw_timestamps(file_pattern, output_dir, args.cut_samples)
 
     # After plotting individual files, create batch size comparison plots
     plot_batch_size_comparison(
