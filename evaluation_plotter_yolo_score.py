@@ -907,6 +907,18 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                     label=stack[stack_idx].replace('_', ' ').title(
                     ) if stack_idx < len(stack) else f"Stack {stack_idx+1}"
                 )
+                
+                if stack_idx == 0:
+                    ax.errorbar(
+                        positions,        
+                        level_means,      
+                        yerr=level_stds,  
+                        fmt='none',      
+                        color='black',
+                        capsize=4,
+                        zorder=10         
+                    )
+                
                 # # Add error bars at the top of the current bar
                 # ax.errorbar(
                 #     positions,
