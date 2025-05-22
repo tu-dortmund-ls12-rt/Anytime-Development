@@ -900,7 +900,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, sync_async_types
                     width=0.4,
                     bottom=prev_heights,
                     color=bar_colors,
-                    alpha=0.6 if stack_idx == 0 else 0.9,
+                    alpha=0.6 if stack_idx == 0 else 0.3,
                     label=stack[stack_idx].replace('_', ' ').title(
                     ) if stack_idx < len(stack) else f"Stack {stack_idx+1}"
                 )

@@ -851,7 +851,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
                     width=0.4,
                     bottom=prev_heights,
                     color=bar_colors,
-                    alpha=0.6 if stack_idx == 0 else 0.9,
+                    alpha=0.6 if stack_idx == 0 else 0.3,
                     label=stack[stack_idx].replace('_', ' ').title(
                     ) if stack_idx < len(stack) else f"Stack {stack_idx+1}"
                 )
@@ -875,7 +875,7 @@ def plot_batch_size_comparison(threading_types, reactive_types, batch_sizes, num
                 rect.set_edgecolor(color)
                 rect.set_linewidth(1.5)
             # Always show zero on y-axis
-            ax.set_ylim(bottom=0)
+            ax.set_ylim(bottom=50)
             # Set x-ticks at the middle of each group
             group_positions = [i * (len(config_colors) + group_space) + 1 + (len(config_colors) * bar_space) / 2
                                for i in range(len(all_batch_sizes))]
