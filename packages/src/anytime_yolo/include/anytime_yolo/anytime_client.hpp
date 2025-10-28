@@ -1,13 +1,14 @@
 #ifndef ANYTIME_CLIENT_HPP
 #define ANYTIME_CLIENT_HPP
 
+#include "anytime_core/anytime_waitable.hpp"
 #include "anytime_interfaces/action/yolo.hpp"
-#include "anytime_yolo/anytime_waitable.hpp"  // Added include for AnytimeWaitable
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
 #include "sensor_msgs/msg/image.hpp"               // Added include for image messages
 #include "vision_msgs/msg/detection2_d_array.hpp"  // Added include for detection messages
+
 
 // Class definition for the Anytime Action Client
 class AnytimeActionClient : public rclcpp::Node
@@ -37,16 +38,11 @@ private:
   rclcpp::Publisher<vision_msgs::msg::Detection2DArray>::SharedPtr detection_publisher_;
 
   // AnytimeWaitable for cancel requests
-  std::shared_ptr<AnytimeWaitable> cancel_waitable_;
+  // Waitable for cancel handling
+  std::shared_ptr<anytime_core::AnytimeWaitable> cancel_waitable_;
 
   // Current image buffer
   sensor_msgs::msg::Image::SharedPtr current_image_;
-
-  // Timer for sending goals
-  rclcpp::TimerBase::SharedPtr timer_ = nullptr;
-
-  // Timer for cancel timeout
-  rclcpp::TimerBase::SharedPtr cancel_timeout_timer_ = nullptr;
 
   // Handle for the current goal
   AnytimeGoalHandle::SharedPtr goal_handle_ = nullptr;

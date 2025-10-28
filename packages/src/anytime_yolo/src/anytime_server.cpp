@@ -6,22 +6,20 @@
 
 // Constructor for the AnytimeActionServer class
 AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
-: Node("anytime_action_server", options.use_intra_process_comms(true))
+: anytime_core::AnytimeActionServerBase<Anytime>(
+    "anytime_action_server", options.use_intra_process_comms(true))
 {
   RCLCPP_DEBUG(this->get_logger(), "Starting Anytime action server");
 
-  action_server_ = rclcpp_action::create_server<Anytime>(
+  this->action_server_ = rclcpp_action::create_server<Anytime>(
     this, "anytime",
-    // Lambda function to handle goal requests
     [this](const rclcpp_action::GoalUUID uuid, std::shared_ptr<const Anytime::Goal> goal) {
       return this->handle_goal(uuid, goal);
     },
-    // Lambda function to handle cancel requests
-    [this](const std::shared_ptr<AnytimeGoalHandle> goal_handle) {
+    [this](const std::shared_ptr<GoalHandleType> goal_handle) {
       return this->handle_cancel(goal_handle);
     },
-    // Lambda function to handle accepted goals
-    [this](const std::shared_ptr<AnytimeGoalHandle> goal_handle) {
+    [this](const std::shared_ptr<GoalHandleType> goal_handle) {
       return this->handle_accepted(goal_handle);
     },
     rcl_action_server_get_default_options(),
@@ -50,7 +48,7 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
   RCLCPP_DEBUG(this->get_logger(), "batch_size: %d", batch_size);
   RCLCPP_DEBUG(this->get_logger(), "weights_path: %s", weights_path.c_str());
 
-  anytime_management_ = create_anytime_management(
+  this->anytime_management_ = create_anytime_management(
     this, is_reactive_proactive, is_passive_cooperative, is_sync_async, batch_size, weights_path);
 }
 
@@ -58,7 +56,8 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
 AnytimeActionServer::~AnytimeActionServer() {}
 
 // factory function
-std::shared_ptr<AnytimeBase<double, Anytime, AnytimeGoalHandle>>
+std::shared_ptr<
+  anytime_core::AnytimeBase<AnytimeActionServer::Anytime, AnytimeActionServer::GoalHandleType>>
 AnytimeActionServer::create_anytime_management(
   rclcpp::Node * node, bool is_reactive_proactive, bool is_passive_cooperative, bool is_sync_async,
   int batch_size, const std::string & weights_path)
@@ -100,50 +99,4 @@ AnytimeActionServer::create_anytime_management(
       }
     }
   }
-}
-
-// Handle goal request
-rclcpp_action::GoalResponse AnytimeActionServer::handle_goal(
-  const rclcpp_action::GoalUUID & uuid, const std::shared_ptr<const Anytime::Goal> goal)
-{
-  (void)goal;  // Suppress unused variable warning
-  anytime_management_->set_goal_handle_receive_time(this->now());
-  RCLCPP_DEBUG(this->get_logger(), "Received goal request");
-  (void)uuid;  // Suppress unused variable warning
-  if (anytime_management_->is_running()) {
-    RCLCPP_DEBUG(this->get_logger(), "Goal rejected: server is active");
-    return rclcpp_action::GoalResponse::REJECT;
-  }
-  RCLCPP_DEBUG(this->get_logger(), "Goal accepted: server is inactive");
-  anytime_management_->set_goal_handle_accept_time(this->now());
-  return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
-}
-
-// Handle cancel request
-rclcpp_action::CancelResponse AnytimeActionServer::handle_cancel(
-  const std::shared_ptr<AnytimeGoalHandle> goal_handle)
-{
-  RCLCPP_DEBUG(this->get_logger(), "Received cancel request");
-  (void)goal_handle;  // Suppress unused variable warning
-
-  anytime_management_->notify_cancel();
-
-  return rclcpp_action::CancelResponse::ACCEPT;
-}
-
-void AnytimeActionServer::handle_accepted(const std::shared_ptr<AnytimeGoalHandle> goal_handle)
-{
-  anytime_management_->set_goal_processing_start_time(this->now());
-  RCLCPP_DEBUG(this->get_logger(), "Setting goal handle for AnytimeManagement");
-  anytime_management_->set_goal_handle(goal_handle);
-
-  RCLCPP_DEBUG(this->get_logger(), "Resetting AnytimeManagement");
-  anytime_management_->reset();
-
-  RCLCPP_DEBUG(this->get_logger(), "Activating AnytimeManagement");
-  anytime_management_->activate();
-
-  RCLCPP_DEBUG(this->get_logger(), "Start AnytimeManagement");
-
-  anytime_management_->start();
 }

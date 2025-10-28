@@ -32,7 +32,8 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
   RCLCPP_DEBUG(this->get_logger(), "Cancel after layers: %d", cancel_after_layers_);
 
   // Initialize the cancel waitable
-  cancel_waitable_ = std::make_shared<AnytimeWaitable>([this]() { this->cancel_callback(); });
+  cancel_waitable_ =
+    std::make_shared<anytime_core::AnytimeWaitable>([this]() { this->cancel_callback(); });
 
   // Add the waitable to the node's waitables interface
   this->get_node_waitables_interface()->add_waitable(
@@ -172,9 +173,8 @@ void AnytimeActionClient::feedback_callback(
           continue;
         }
         // Check if any result in this detection has score >= 0.7 and class_id == "9"
-        auto found = std::find_if(
-          detection.results.begin(), detection.results.end(),
-          [](const auto & res) {
+        auto found =
+          std::find_if(detection.results.begin(), detection.results.end(), [](const auto & res) {
             return res.hypothesis.score >= 0.7 && res.hypothesis.class_id == "9";
           });
         if (found != detection.results.end() && !is_cancelling_) {
@@ -228,7 +228,7 @@ void AnytimeActionClient::cancel_response_callback(
 
 void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult & result)
 {
-  if(!is_cancelling_){
+  if (!is_cancelling_) {
     // set cancel times
     client_send_cancel_start_time_ = this->now();
     client_send_cancel_end_time_ = this->now();

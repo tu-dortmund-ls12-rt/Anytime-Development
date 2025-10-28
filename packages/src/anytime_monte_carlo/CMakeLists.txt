@@ -20,11 +20,12 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(anytime_interfaces REQUIRED)
+find_package(anytime_core REQUIRED)
 
 # Include Cpp "include" directory
 include_directories(include)
 
-set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action")
+set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "anytime_core")
 
 # Add libraries
 add_library(anytime_mc_client_lib SHARED src/anytime_client.cpp)

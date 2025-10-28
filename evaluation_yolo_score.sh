@@ -51,8 +51,8 @@ done
 
 source packages/install/setup.bash
 
-declare -a is_single_multi=("False" "True")
-declare -a is_sync_async=("False" "True")
+declare -a is_single_multi=("True")
+declare -a is_sync_async=("False")
 declare -a batch_sizes=(1 5 10)
 
 # Create the results and plots directories

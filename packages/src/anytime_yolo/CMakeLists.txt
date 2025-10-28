@@ -30,6 +30,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(anytime_interfaces REQUIRED)
+find_package(anytime_core REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(CUDA REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -43,7 +44,7 @@ include_directories(${TENSORRT_INCLUDE_DIR})
 link_directories(${TENSORRT_LIB_DIR})
 include_directories(include /usr/include/${ARCHITECTURE}-linux-gnu ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
-set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "sensor_msgs" "cv_bridge")
+set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "anytime_core" "sensor_msgs" "cv_bridge")
 
 # Add libraries
 add_library(anytime_yolo_client_lib SHARED src/anytime_client.cpp)
