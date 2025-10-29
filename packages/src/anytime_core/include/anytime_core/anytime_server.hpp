@@ -20,6 +20,21 @@ public:
     const std::string & node_name, rclcpp::NodeOptions options = rclcpp::NodeOptions())
   : Node(node_name, options)
   {
+    // Create the action server - common for all derived classes
+    action_server_ = rclcpp_action::create_server<ActionType>(
+      this, "anytime",
+      [this](
+        const rclcpp_action::GoalUUID uuid, std::shared_ptr<const typename ActionType::Goal> goal) {
+        return this->handle_goal(uuid, goal);
+      },
+      [this](const std::shared_ptr<GoalHandleType> goal_handle) {
+        return this->handle_cancel(goal_handle);
+      },
+      [this](const std::shared_ptr<GoalHandleType> goal_handle) {
+        return this->handle_accepted(goal_handle);
+      },
+      rcl_action_server_get_default_options(),
+      this->get_node_base_interface()->get_default_callback_group());
   }
 
   virtual ~AnytimeActionServerBase() = default;
@@ -32,7 +47,6 @@ protected:
   virtual rclcpp_action::GoalResponse handle_goal(
     const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const typename ActionType::Goal> goal)
   {
-    anytime_management_->set_goal_handle_receive_time(this->now());
     RCLCPP_DEBUG(this->get_logger(), "Received goal request");
     (void)uuid;  // Suppress unused variable warning
     (void)goal;  // Suppress unused variable warning
@@ -43,7 +57,6 @@ protected:
     }
 
     RCLCPP_DEBUG(this->get_logger(), "Goal accepted: server is inactive");
-    anytime_management_->set_goal_handle_accept_time(this->now());
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
 
@@ -60,7 +73,6 @@ protected:
   // Common accepted handling
   virtual void handle_accepted(const std::shared_ptr<GoalHandleType> goal_handle)
   {
-    anytime_management_->set_goal_processing_start_time(this->now());
     RCLCPP_DEBUG(this->get_logger(), "Setting goal handle for AnytimeManagement");
     anytime_management_->set_goal_handle(goal_handle);
 

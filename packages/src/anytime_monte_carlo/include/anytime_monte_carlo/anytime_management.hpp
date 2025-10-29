@@ -80,19 +80,6 @@ public:
     return loop_count_ >= this->goal_handle_->get_goal()->goal;
   }
 
-  // Override notify_cancel to implement reactive/proactive-specific behavior
-  void notify_cancel() override
-  {
-    this->server_goal_cancel_time_ = this->node_->now();
-    RCLCPP_DEBUG(this->node_->get_logger(), "Notify cancel function");
-    if constexpr (isReactiveProactive) {
-      this->notify_check_finish();
-    } else {
-      this->notify_result();
-    }
-    RCLCPP_DEBUG(this->node_->get_logger(), "Notify cancel function finished");
-  }
-
 protected:
   // Count variables
   int count_total_ = 0;

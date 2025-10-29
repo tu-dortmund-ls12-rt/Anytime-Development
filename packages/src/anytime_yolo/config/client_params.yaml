@@ -1,0 +1,16 @@
+anytime_client:
+  ros__parameters:
+    # Image topic configuration
+    image_topic: "video_frames"  # Topic name for the input image
+    
+    # Cancellation configuration
+    cancel_after_layers: 12  # Number of processed layers before triggering cancellation
+    cancel_layer_score: false  # Enable cancellation based on high score for id 9 in feedback
+    
+    # Score threshold for cancellation (when cancel_layer_score is true)
+    score_threshold: 0.7  # Minimum score threshold for cancellation
+    target_class_id: "9"  # Target class ID for score-based cancellation
+    
+    # Logging configuration
+    log_level: "info"  # Options: "debug", "info", "warn", "error", "fatal"
+

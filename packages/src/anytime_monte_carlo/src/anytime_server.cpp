@@ -4,31 +4,23 @@
 
 // Constructor for the AnytimeActionServer class
 AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
-: anytime_core::AnytimeActionServerBase<Anytime>("anytime_action_server", options)
+: anytime_core::AnytimeActionServerBase<Anytime>(
+    "anytime_action_server", options.use_intra_process_comms(true))
 {
   RCLCPP_DEBUG(this->get_logger(), "Starting Anytime action server");
-
-  // Create the action server
-  this->action_server_ = rclcpp_action::create_server<Anytime>(
-    this, "anytime",
-    [this](const rclcpp_action::GoalUUID uuid, std::shared_ptr<const Anytime::Goal> goal) {
-      return this->handle_goal(uuid, goal);
-    },
-    [this](const std::shared_ptr<GoalHandleType> goal_handle) {
-      return this->handle_cancel(goal_handle);
-    },
-    [this](const std::shared_ptr<GoalHandleType> goal_handle) {
-      return this->handle_accepted(goal_handle);
-    },
-    rcl_action_server_get_default_options(),
-    this->get_node_base_interface()->get_default_callback_group());
 
   // Read the ros2 parameters
   std::string reactive_proactive_str = this->declare_parameter("is_reactive_proactive", "reactive");
   int batch_size = this->declare_parameter("batch_size", 1);
+  std::string single_multi_str = this->declare_parameter("is_single_multi", "single");
 
   // Convert strings to booleans
   bool is_reactive_proactive = (reactive_proactive_str == "proactive");
+
+  RCLCPP_INFO(this->get_logger(), "Monte Carlo Action Server initialized with parameters:");
+  RCLCPP_INFO(this->get_logger(), "  is_reactive_proactive: %s", reactive_proactive_str.c_str());
+  RCLCPP_INFO(this->get_logger(), "  batch_size: %d", batch_size);
+  RCLCPP_INFO(this->get_logger(), "  threading_mode: %s", single_multi_str.c_str());
 
   RCLCPP_DEBUG(
     this->get_logger(), "is_reactive_proactive: %s",

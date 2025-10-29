@@ -89,6 +89,7 @@ install(TARGETS
 
 install(DIRECTORY
   launch
+  config
   weights_32
   DESTINATION share/${PROJECT_NAME}
 )

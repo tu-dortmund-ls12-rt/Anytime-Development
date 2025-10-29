@@ -10,24 +10,33 @@
 #include <vector>
 
 AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
-: Node("anytime_action_client", options)
+: anytime_core::AnytimeClientBase<Anytime>("anytime_action_client", options)
 {
   RCLCPP_DEBUG(this->get_logger(), "Starting Anytime action client");
   // Initialize is_cancelling_ to false
   is_cancelling_ = false;
 
-  // Declare parameters with default values
-  this->declare_parameter("result_filename", "anytime_results");
+  // Declare domain-specific parameters with default values
   this->declare_parameter("image_topic", "video_frames");
   this->declare_parameter("cancel_after_layers", 10);
   this->declare_parameter("cancel_layer_score", false);
+  this->declare_parameter("score_threshold", 0.7);
+  this->declare_parameter("target_class_id", "9");
 
-  result_filename_ = this->get_parameter("result_filename").as_string();
   std::string image_topic = this->get_parameter("image_topic").as_string();
   cancel_after_layers_ = this->get_parameter("cancel_after_layers").as_int();
   cancel_layer_score_ = this->get_parameter("cancel_layer_score").as_bool();
+  score_threshold_ = this->get_parameter("score_threshold").as_double();
+  target_class_id_ = this->get_parameter("target_class_id").as_string();
 
-  RCLCPP_DEBUG(this->get_logger(), "Result filename: %s", result_filename_.c_str());
+  RCLCPP_INFO(this->get_logger(), "YOLO Action Client initialized with parameters:");
+  RCLCPP_INFO(this->get_logger(), "  image_topic: %s", image_topic.c_str());
+  RCLCPP_INFO(this->get_logger(), "  cancel_after_layers: %d", cancel_after_layers_);
+  RCLCPP_INFO(
+    this->get_logger(), "  cancel_layer_score: %s", cancel_layer_score_ ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  score_threshold: %.2f", score_threshold_);
+  RCLCPP_INFO(this->get_logger(), "  target_class_id: %s", target_class_id_.c_str());
+
   RCLCPP_DEBUG(this->get_logger(), "Image topic: %s", image_topic.c_str());
   RCLCPP_DEBUG(this->get_logger(), "Cancel after layers: %d", cancel_after_layers_);
 
@@ -49,9 +58,6 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 
   detection_publisher_ =
     this->create_publisher<vision_msgs::msg::Detection2DArray>("/detections", 10);
-
-  // Initialize the action client
-  action_client_ = rclcpp_action::create_client<Anytime>(this, "anytime");
 }
 
 AnytimeActionClient::~AnytimeActionClient() {}
@@ -77,52 +83,24 @@ void AnytimeActionClient::image_callback(const sensor_msgs::msg::Image::SharedPt
 
 void AnytimeActionClient::send_goal(const Anytime::Goal & goal_msg)
 {
-  client_goal_start_time_ = this->now();
   RCLCPP_DEBUG(this->get_logger(), "Sending goal info");
 
-  // Define the goal options with callbacks
-  auto send_goal_options = rclcpp_action::Client<Anytime>::SendGoalOptions();
-  send_goal_options.goal_response_callback = [this](AnytimeGoalHandle::SharedPtr goal_handle) {
-    this->goal_response_callback(goal_handle);
-  };
-  send_goal_options.feedback_callback = [this](
-                                          AnytimeGoalHandle::SharedPtr goal_handle,
-                                          const std::shared_ptr<const Anytime::Feedback> feedback) {
-    this->feedback_callback(goal_handle, feedback);
-  };
-  send_goal_options.result_callback = [this](const AnytimeGoalHandle::WrappedResult & result) {
-    this->result_callback(result);
-  };
-
-  // Send the goal asynchronously
-  if (!action_client_->wait_for_action_server(std::chrono::seconds(5))) {
-    RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
-    return;
-  }
-
-  client_send_start_time_ = this->now();
-
-  action_client_->async_send_goal(goal_msg, send_goal_options);
-
-  client_send_end_time_ = this->now();
+  // Use the base class helper to send the goal
+  send_goal_to_server(goal_msg);
 }
 
-void AnytimeActionClient::goal_response_callback(AnytimeGoalHandle::SharedPtr goal_handle)
+void AnytimeActionClient::on_goal_rejected()
 {
-  client_goal_response_time_ = this->now();
-  // Check if the goal was rejected by the server
-  if (!goal_handle) {
-    RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-    return;
-  }
+  // YOLO doesn't need to do anything special on goal rejection
+}
 
-  // Store the goal handle for future reference
-  goal_handle_ = goal_handle;
-
+void AnytimeActionClient::on_goal_accepted(AnytimeGoalHandle::SharedPtr goal_handle)
+{
+  (void)goal_handle;
   RCLCPP_DEBUG(this->get_logger(), "Goal accepted by server");
 }
 
-void AnytimeActionClient::feedback_callback(
+void AnytimeActionClient::process_feedback(
   AnytimeGoalHandle::SharedPtr goal_handle, const std::shared_ptr<const Anytime::Feedback> feedback)
 {
   if (!goal_handle) {
@@ -164,7 +142,7 @@ void AnytimeActionClient::feedback_callback(
   }
 
   if (cancel_layer_score_) {
-    // Cancel if high score for id 9 is detected
+    // Cancel if high score for target class is detected
     if (!feedback->detections.empty()) {
       const auto & detections = feedback->detections;
       for (size_t i = 0; i < detections.size(); ++i) {
@@ -172,15 +150,17 @@ void AnytimeActionClient::feedback_callback(
         if (detection.results.empty()) {
           continue;
         }
-        // Check if any result in this detection has score >= 0.7 and class_id == "9"
-        auto found =
-          std::find_if(detection.results.begin(), detection.results.end(), [](const auto & res) {
-            return res.hypothesis.score >= 0.7 && res.hypothesis.class_id == "9";
+        // Check if any result in this detection has score >= threshold and class_id matches target
+        auto found = std::find_if(
+          detection.results.begin(), detection.results.end(), [this](const auto & res) {
+            return res.hypothesis.score >= score_threshold_ &&
+                   res.hypothesis.class_id == target_class_id_;
           });
         if (found != detection.results.end() && !is_cancelling_) {
           RCLCPP_INFO(
-            this->get_logger(), "Canceling goal due to high score for id 9 after %d layers",
-            feedback->processed_layers);
+            this->get_logger(),
+            "Canceling goal due to high score (%.2f) for class %s after %d layers",
+            found->hypothesis.score, target_class_id_.c_str(), feedback->processed_layers);
           cancel_waitable_->notify();
           return;
         }
@@ -197,79 +177,14 @@ void AnytimeActionClient::feedback_callback(
   }
 }
 
-void AnytimeActionClient::cancel_callback()
+void AnytimeActionClient::log_result(const AnytimeGoalHandle::WrappedResult & result)
 {
-  if (is_cancelling_ || !goal_handle_) {
-    return;
-  }
-
-  RCLCPP_DEBUG(this->get_logger(), "Cancel waitable triggered, cancelling goal");
-  // Set the cancellation flag to true to prevent multiple cancellations
-  is_cancelling_ = true;
-
-  client_send_cancel_start_time_ = this->now();
-
-  // Send a cancel request for the current goal
-  action_client_->async_cancel_goal(
-    goal_handle_, [this](std::shared_ptr<action_msgs::srv::CancelGoal_Response> cancel_response) {
-      this->cancel_response_callback(cancel_response);
-    });
-
-  client_send_cancel_end_time_ = this->now();
-  RCLCPP_DEBUG(this->get_logger(), "Cancel request sent");
-}
-
-void AnytimeActionClient::cancel_response_callback(
-  const std::shared_ptr<action_msgs::srv::CancelGoal_Response> & cancel_response)
-{
-  (void)cancel_response;
-  RCLCPP_DEBUG(this->get_logger(), "Cancel request accepted by server");
-}
-
-void AnytimeActionClient::result_callback(const AnytimeGoalHandle::WrappedResult & result)
-{
-  if (!is_cancelling_) {
-    // set cancel times
-    client_send_cancel_start_time_ = this->now();
-    client_send_cancel_end_time_ = this->now();
-  }
-
-  client_result_time_ = this->now();
-
-  // Log the result based on the result code
-  switch (result.code) {
-    case rclcpp_action::ResultCode::SUCCEEDED:
-      // If the goal succeeded, log the result
-      RCLCPP_DEBUG(this->get_logger(), "Result received");
-      post_processing(result);
-      print_time_differences(result);
-      break;
-    case rclcpp_action::ResultCode::ABORTED:
-      // If the goal was aborted, log an error
-      RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
-      break;
-    case rclcpp_action::ResultCode::CANCELED:
-      // If the goal was canceled, log an error and the result after cancel
-      RCLCPP_DEBUG(this->get_logger(), "Goal was canceled");
-      post_processing(result);
-      print_time_differences(result);
-      break;
-    default:
-      // If the result code is unknown, log an error
-      RCLCPP_ERROR(this->get_logger(), "Unknown result code");
-      break;
-  }
-  current_image_.reset();
-  // Reset the cancellation flag when we receive a result
-  is_cancelling_ = false;
+  (void)result;
+  RCLCPP_DEBUG(this->get_logger(), "Result received");
 }
 
 void AnytimeActionClient::post_processing(const AnytimeGoalHandle::WrappedResult & result)
 {
-  // print time between start and receive in milliseconds
-  RCLCPP_DEBUG(
-    this->get_logger(), "Time between start and receive: %ld ms",
-    (client_result_time_ - client_goal_start_time_).nanoseconds() / 1000000);
   RCLCPP_DEBUG(this->get_logger(), "Publishing detection image");
   detection_image_publisher_->publish(*current_image_);
 
@@ -287,166 +202,35 @@ void AnytimeActionClient::post_processing(const AnytimeGoalHandle::WrappedResult
   detection_publisher_->publish(detection_array);
 }
 
-void AnytimeActionClient::print_time_differences(const AnytimeGoalHandle::WrappedResult & result)
+void AnytimeActionClient::cleanup_after_result()
 {
-  // Extract timestamps from client side
-  RCLCPP_DEBUG(this->get_logger(), "Extracting raw timestamps");
+  current_image_.reset();
+  // Reset the cancellation flag when we receive a result
+  is_cancelling_ = false;
+}
 
-  // Extract timestamps from server side (sent in the result)
-  rclcpp::Time action_server_receive_time(
-    result.result->action_server_receive.sec, result.result->action_server_receive.nanosec);
-  rclcpp::Time action_server_accept_time(
-    result.result->action_server_accept.sec, result.result->action_server_accept.nanosec);
-  rclcpp::Time action_server_start_time(
-    result.result->action_server_start.sec, result.result->action_server_start.nanosec);
-  rclcpp::Time action_server_cancel_time(
-    result.result->action_server_cancel.sec, result.result->action_server_cancel.nanosec);
-  rclcpp::Time action_server_send_result_time(
-    result.result->action_server_send_result.sec, result.result->action_server_send_result.nanosec);
-
-  rclcpp::Time batch_time(
-    result.result->average_batch_time.sec, result.result->average_batch_time.nanosec);
-
-  int processed_layers = result.result->processed_layers;
-  int result_processed_layers = result.result->result_processed_layers;
-
-  // Log raw timestamps in nanoseconds
-  RCLCPP_DEBUG(this->get_logger(), "Raw timestamp data (nanoseconds):");
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_goal_start_time: %ld", client_goal_start_time_.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_send_start_time: %ld", client_send_start_time_.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_send_end_time: %ld", client_send_end_time_.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_goal_response_time: %ld", client_goal_response_time_.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_send_cancel_start_time: %ld",
-    client_send_cancel_start_time_.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_send_cancel_end_time: %ld",
-    client_send_cancel_end_time_.nanoseconds());
-  RCLCPP_DEBUG(this->get_logger(), "client_result_time: %ld", client_result_time_.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "action_server_receive_time: %ld",
-    action_server_receive_time.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "action_server_accept_time: %ld", action_server_accept_time.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "action_server_start_time: %ld", action_server_start_time.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "action_server_cancel_time: %ld", action_server_cancel_time.nanoseconds());
-  RCLCPP_DEBUG(
-    this->get_logger(), "action_server_send_result_time: %ld",
-    action_server_send_result_time.nanoseconds());
-  RCLCPP_DEBUG(this->get_logger(), "batch_time_ns: %ld", batch_time.nanoseconds());
-  RCLCPP_DEBUG(this->get_logger(), "processed_layers: %d", processed_layers);
-  RCLCPP_DEBUG(this->get_logger(), "result_processed_layers: %d", result_processed_layers);
-
-  // Create results directory if it doesn't exist
-  std::string results_dir = "results";
-  std::filesystem::create_directories(results_dir);
-
-  // Use the provided filename instead of generating one
-  std::string filename = results_dir + "/" + result_filename_ + ".csv";
-
-  RCLCPP_DEBUG(this->get_logger(), "Using output file: %s", filename.c_str());
-
-  bool file_exists = std::ifstream(filename).good();
-
-  std::ofstream file;
-  file.open(filename, std::ios::app);  // Append mode
-
-  // Write header if file is new
-  if (!file_exists) {
-    file << "client_goal_start,client_send_start,client_send_end,client_goal_response,"
-         << "client_send_cancel_start,client_send_cancel_end,client_result,"
-         << "server_receive,server_accept,server_start,server_cancel,server_send_result,"
-         << "batch_time_ns,processed_layers,result_processed_layers\n";
+void AnytimeActionClient::cancel_callback()
+{
+  if (is_cancelling_ || !goal_handle_) {
+    return;
   }
 
-  // Write raw timestamp data
-  file << client_goal_start_time_.nanoseconds() << "," << client_send_start_time_.nanoseconds()
-       << "," << client_send_end_time_.nanoseconds() << ","
-       << client_goal_response_time_.nanoseconds() << ","
-       << client_send_cancel_start_time_.nanoseconds() << ","
-       << client_send_cancel_end_time_.nanoseconds() << "," << client_result_time_.nanoseconds()
-       << "," << action_server_receive_time.nanoseconds() << ","
-       << action_server_accept_time.nanoseconds() << "," << action_server_start_time.nanoseconds()
-       << "," << action_server_cancel_time.nanoseconds() << ","
-       << action_server_send_result_time.nanoseconds() << "," << batch_time.nanoseconds() << ","
-       << processed_layers << "," << result_processed_layers << "\n";
+  RCLCPP_DEBUG(this->get_logger(), "Cancel waitable triggered, cancelling goal");
+  // Set the cancellation flag to true to prevent multiple cancellations
+  is_cancelling_ = true;
 
-  file.close();
+  // Send a cancel request for the current goal
+  action_client_->async_cancel_goal(
+    goal_handle_, [this](std::shared_ptr<action_msgs::srv::CancelGoal_Response> cancel_response) {
+      this->cancel_response_callback(cancel_response);
+    });
 
-  // Calculate and print latency metrics in milliseconds
-  RCLCPP_DEBUG(this->get_logger(), "Latency metrics (milliseconds):");
+  RCLCPP_DEBUG(this->get_logger(), "Cancel request sent");
+}
 
-  // Helper function to calculate time difference in ms between two timestamps
-  auto calc_latency_ms = [](const rclcpp::Time & t1, const rclcpp::Time & t2) -> double {
-    return (t2.nanoseconds() - t1.nanoseconds()) / 1000000.0;
-  };
-
-  // Client-side latencies
-  RCLCPP_DEBUG(
-    this->get_logger(), "total_client_start: %.2f ms",
-    calc_latency_ms(client_goal_start_time_, action_server_receive_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_start: %.2f ms",
-    calc_latency_ms(client_goal_start_time_, client_send_start_time_));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_send_receive: %.2f ms",
-    calc_latency_ms(client_send_start_time_, action_server_receive_time));
-
-  // Server start latencies
-  RCLCPP_DEBUG(
-    this->get_logger(), "total_server_start: %.2f ms",
-    calc_latency_ms(action_server_receive_time, action_server_start_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "server_accept: %.2f ms",
-    calc_latency_ms(action_server_receive_time, action_server_accept_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "server_start: %.2f ms",
-    calc_latency_ms(action_server_accept_time, action_server_start_time));
-
-  // Execution latencies
-  RCLCPP_DEBUG(
-    this->get_logger(), "server_start_finish: %.2f ms",
-    calc_latency_ms(action_server_start_time, action_server_send_result_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "server_start_cancel: %.2f ms",
-    calc_latency_ms(action_server_start_time, action_server_cancel_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_start_cancel: %.2f ms",
-    calc_latency_ms(client_send_start_time_, client_send_cancel_start_time_));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_start_receive: %.2f ms",
-    calc_latency_ms(client_send_start_time_, client_result_time_));
-
-  // Cancel latencies
-  RCLCPP_DEBUG(
-    this->get_logger(), "total_client_cancel: %.2f ms",
-    calc_latency_ms(client_send_cancel_start_time_, client_result_time_));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_cancel_receive: %.2f ms",
-    calc_latency_ms(client_send_cancel_start_time_, action_server_cancel_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_cancel_result_send: %.2f ms",
-    calc_latency_ms(action_server_cancel_time, action_server_send_result_time));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_cancel_result_receive: %.2f ms",
-    calc_latency_ms(action_server_send_result_time, client_result_time_));
-
-  // Communication latencies
-  RCLCPP_DEBUG(
-    this->get_logger(), "server_start_response: %.2f ms",
-    calc_latency_ms(action_server_accept_time, client_goal_response_time_));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_send_latency: %.2f ms",
-    calc_latency_ms(client_send_start_time_, client_send_end_time_));
-  RCLCPP_DEBUG(
-    this->get_logger(), "client_cancel_latency: %.2f ms",
-    calc_latency_ms(client_send_cancel_start_time_, client_send_cancel_end_time_));
-
-  RCLCPP_DEBUG(this->get_logger(), "Raw timestamp data saved to %s", filename.c_str());
+void AnytimeActionClient::cancel_response_callback(
+  const std::shared_ptr<action_msgs::srv::CancelGoal_Response> & cancel_response)
+{
+  (void)cancel_response;
+  RCLCPP_DEBUG(this->get_logger(), "Cancel request accepted by server");
 }

@@ -22,7 +22,7 @@ using Anytime = anytime_interfaces::action::Yolo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
 // Anytime Management class template
-template <bool isReactiveProactive, bool isPassiveCooperative, bool isSyncAsync>
+template <bool isReactiveProactive, bool isSyncAsync>
 class AnytimeManagement : public anytime_core::AnytimeBase<Anytime, AnytimeGoalHandle>
 {
 public:
@@ -234,19 +234,6 @@ public:
     } else {
       return nullptr;
     }
-  }
-
-  // Override notify_cancel to implement reactive/proactive-specific behavior
-  void notify_cancel() override
-  {
-    this->server_goal_cancel_time_ = this->node_->now();
-    RCLCPP_DEBUG(this->node_->get_logger(), "Notify cancel function");
-    if constexpr (isReactiveProactive) {
-      this->notify_check_finish();
-    } else {
-      this->notify_result();
-    }
-    RCLCPP_DEBUG(this->node_->get_logger(), "Notify cancel function finished");
   }
 
   // ---------------- CUDA Callback Function -----------------

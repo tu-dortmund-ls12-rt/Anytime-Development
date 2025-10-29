@@ -65,8 +65,6 @@ public:
     bool should_cancel = goal_handle_->is_canceling();
 
     if ((should_finish_now || should_cancel) && is_running()) {
-      result_->action_server_cancel = server_goal_cancel_time_;
-      result_->action_server_send_result = node_->now();
       if (should_cancel) {
         goal_handle_->canceled(result_);
       } else {
@@ -109,12 +107,6 @@ public:
 
     if ((should_finish_now || should_cancel) && is_running()) {
       if (should_cancel) {
-        result_->action_server_cancel = server_goal_cancel_time_;
-      } else {
-        result_->action_server_cancel = node_->now();
-      }
-      result_->action_server_send_result = node_->now();
-      if (should_cancel) {
         goal_handle_->canceled(result_);
       } else {
         goal_handle_->succeed(result_);
@@ -152,14 +144,29 @@ public:
     // Calculate computation time for this batch
     rclcpp::Duration computation_time = end_time - start_time;
 
-    // Update the average computation time
+    // Update the average computation time using incremental averaging
+    // Using double precision to avoid integer overflow
     batch_count_++;
     if (batch_count_ == 1) {
       average_computation_time_ = computation_time;
     } else {
-      average_computation_time_ = rclcpp::Duration(std::chrono::nanoseconds(
-        average_computation_time_.nanoseconds() +
-        (computation_time.nanoseconds() - average_computation_time_.nanoseconds()) / batch_count_));
+      // Compute incremental average: avg_new = avg_old + (value - avg_old) / count
+      // Use double to avoid overflow with large nanosecond values
+      double avg_ns = static_cast<double>(average_computation_time_.nanoseconds());
+      double new_ns = static_cast<double>(computation_time.nanoseconds());
+      double delta = new_ns - avg_ns;
+      avg_ns = avg_ns + (delta / static_cast<double>(batch_count_));
+
+      // Clamp to valid range to prevent overflow
+      if (avg_ns < 0.0) {
+        RCLCPP_WARN(
+          node_->get_logger(),
+          "Negative average computation time detected, resetting to current time");
+        avg_ns = new_ns;
+      }
+
+      average_computation_time_ =
+        rclcpp::Duration(std::chrono::nanoseconds(static_cast<int64_t>(avg_ns)));
     }
 
     RCLCPP_DEBUG(
@@ -191,22 +198,19 @@ public:
     // Let derived class populate domain-specific result
     populate_result(new_result);
 
-    // Add common timestamp information
-    new_result->action_server_receive = server_goal_receive_time_;
-    new_result->action_server_accept = server_goal_accept_time_;
-    new_result->action_server_start = server_goal_start_time_;
-    new_result->action_server_cancel = result_->action_server_cancel;
-
     result_ = new_result;
   }
 
   virtual void notify_cancel()
   {
-    server_goal_cancel_time_ = node_->now();
     RCLCPP_DEBUG(node_->get_logger(), "Notify cancel function");
-    // Reactive: process result first, then check finish
-    // Proactive: check finish immediately
-    // This will be specialized by template parameter in derived classes
+    if (is_reactive_proactive_) {
+      // Proactive: check finish immediately
+      this->notify_check_finish();
+    } else {
+      // Reactive: process result first, then check finish
+      this->notify_result();
+    }
     RCLCPP_DEBUG(node_->get_logger(), "Notify cancel function finished");
   }
 
@@ -217,13 +221,6 @@ public:
 
     // Reset domain-specific state
     reset_domain_state();
-
-    // Reset common state
-    result_->action_server_receive = server_goal_receive_time_;
-    result_->action_server_accept = server_goal_accept_time_;
-    result_->action_server_start = server_goal_start_time_;
-
-    server_goal_cancel_time_ = node_->now();
 
     batch_count_ = 0;
     average_computation_time_ = rclcpp::Duration(0, 0);
@@ -243,11 +240,6 @@ public:
   void notify_result() { anytime_result_waitable_->notify(); }
   void notify_check_finish() { anytime_check_finish_waitable_->notify(); }
 
-  // Timestamp setters
-  void set_goal_handle_accept_time(rclcpp::Time time) { server_goal_accept_time_ = time; }
-  void set_goal_handle_receive_time(rclcpp::Time time) { server_goal_receive_time_ = time; }
-  void set_goal_processing_start_time(rclcpp::Time time) { server_goal_start_time_ = time; }
-
 protected:
   // Initialize waitables and callback group
   // Call this from derived class constructor with is_reactive_proactive template parameter
@@ -256,6 +248,9 @@ protected:
   {
     node_ = node;
     batch_size_ = batch_size;
+
+    // Store the mode
+    is_reactive_proactive_ = isReactiveProactive;
 
     // Create callback group
     compute_callback_group_ =
@@ -311,12 +306,6 @@ protected:
   std::shared_ptr<typename InterfaceType::Result> result_ =
     std::make_shared<typename InterfaceType::Result>();
 
-  // Timestamps
-  rclcpp::Time server_goal_accept_time_;
-  rclcpp::Time server_goal_receive_time_;
-  rclcpp::Time server_goal_start_time_;
-  rclcpp::Time server_goal_cancel_time_;
-
   // Callback group for compute operations
   rclcpp::CallbackGroup::SharedPtr compute_callback_group_;
 
@@ -326,6 +315,9 @@ protected:
   // Performance metrics
   uint64_t batch_count_ = 0;
   rclcpp::Duration average_computation_time_{0, 0};
+
+  // Mode tracking
+  bool is_reactive_proactive_ = false;
 };
 
 }  // namespace anytime_core
