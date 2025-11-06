@@ -188,85 +188,101 @@ Demonstrate how batch size affects concurrent task execution by running an inter
 
 ### Implementation Steps
 
-#### 3.1 Convert Monte Carlo to Components
-**Files**:
-- `packages/src/anytime_monte_carlo/src/anytime_server_component.cpp` (NEW)
-- `packages/src/anytime_monte_carlo/src/anytime_client_component.cpp` (NEW)
-- `packages/src/anytime_monte_carlo/include/anytime_monte_carlo/anytime_server_component.hpp` (NEW)
-- `packages/src/anytime_monte_carlo/include/anytime_monte_carlo/anytime_client_component.hpp` (NEW)
+#### 3.1 Create Combined Main for Monte Carlo Interference
+**File**: `packages/src/interference_experiment/src/monte_carlo_interference_main.cpp` (NEW)
 
 **Tasks**:
-- [ ] Create component versions of AnytimeActionServer
-  - Register with `rclcpp_components_register_nodes`
-  - Maintain same functionality as node version
-- [ ] Create component versions of AnytimeActionClient
-  - Register with `rclcpp_components_register_nodes`
-  - Maintain same functionality as node version
-- [ ] Update `packages/src/anytime_monte_carlo/CMakeLists.txt`:
-  - Add component library targets
-  - Add component registration
-  - Install component libraries
+- [ ] Create main executable that instantiates:
+  - AnytimeActionServer (Monte Carlo) node
+  - AnytimeActionClient (Monte Carlo) node
+  - InterferenceTimer node (OPTIONAL - only when enable_interference=true)
+- [ ] Add command-line arguments or ROS parameters for:
+  - executor_type: [single_threaded, multi_threaded]
+  - batch_size for Monte Carlo
+  - timer_period for interference timer
+  - is_reactive_proactive
+  - enable_interference: [true, false] - whether to include the interference timer
+- [ ] Manually create executor based on executor_type parameter:
+  - `rclcpp::executors::SingleThreadedExecutor` for single-threaded
+  - `rclcpp::executors::MultiThreadedExecutor` for multi-threaded
+- [ ] Add server and client nodes to the executor
+- [ ] Conditionally add InterferenceTimer node only if enable_interference=true
+- [ ] Spin the executor
+- [ ] Handle graceful shutdown
 
-#### 3.2 Convert YOLO to Components
-**Files**:
-- `packages/src/anytime_yolo/src/anytime_server_component.cpp` (NEW)
-- `packages/src/anytime_yolo/src/anytime_client_component.cpp` (NEW)
-- `packages/src/anytime_yolo/include/anytime_yolo/anytime_server_component.hpp` (NEW)
-- `packages/src/anytime_yolo/include/anytime_yolo/anytime_client_component.hpp` (NEW)
-
-**Tasks**:
-- [ ] Create component versions of AnytimeActionServer
-  - Register with `rclcpp_components_register_nodes`
-  - Maintain same functionality as node version
-- [ ] Create component versions of AnytimeActionClient
-  - Register with `rclcpp_components_register_nodes`
-  - Maintain same functionality as node version
-- [ ] Update `packages/src/anytime_yolo/CMakeLists.txt`:
-  - Add component library targets
-  - Add component registration
-  - Install component libraries
-
-#### 3.3 Create/Enhance Interference Timer Component
-**File**: `packages/src/interference_experiment/src/interference_timer_component.cpp` (EXISTS)
-**File**: `packages/src/interference_experiment/include/interference_experiment/interference_timer_component.hpp` (NEW)
+#### 3.2 Create Combined Main for YOLO Interference
+**File**: `packages/src/interference_experiment/src/yolo_interference_main.cpp` (NEW)
 
 **Tasks**:
-- [ ] Review existing interference timer implementation
+- [ ] Create main executable that instantiates:
+  - AnytimeActionServer (YOLO) node
+  - AnytimeActionClient (YOLO) node
+  - InterferenceTimer node (OPTIONAL - only when enable_interference=true)
+- [ ] Add command-line arguments or ROS parameters for:
+  - executor_type: [single_threaded, multi_threaded]
+  - batch_size for YOLO
+  - timer_period for interference timer
+  - is_reactive_proactive, is_sync_async
+  - enable_interference: [true, false] - whether to include the interference timer
+- [ ] Manually create executor based on executor_type parameter:
+  - `rclcpp::executors::SingleThreadedExecutor` for single-threaded
+  - `rclcpp::executors::MultiThreadedExecutor` for multi-threaded
+- [ ] Add server and client nodes to the executor
+- [ ] Conditionally add InterferenceTimer node only if enable_interference=true
+- [ ] Spin the executor
+- [ ] Handle graceful shutdown
+
+#### 3.3 Create/Enhance Interference Timer Node
+**File**: `packages/src/interference_experiment/src/interference_timer_node.cpp` (NEW)
+**File**: `packages/src/interference_experiment/include/interference_experiment/interference_timer_node.hpp` (NEW)
+
+**Tasks**:
+- [ ] Create standalone interference timer node (not a component)
 - [ ] Add tracepoints for timer execution:
   - Timer callback start
   - Timer callback end
   - Execution duration
   - Expected vs. actual period
 - [ ] Add configurable timer period parameter
-- [ ] Ensure component is properly registered
+- [ ] Implement timer callback with busy-wait or computation to simulate interference
 
 **File**: `packages/src/anytime_core/include/anytime_core/tracing.hpp`
 - [ ] Define tracepoint macros for interference timer:
   - `TRACE_INTERFERENCE_TIMER_START(timer_id, expected_period_ms)`
   - `TRACE_INTERFERENCE_TIMER_END(timer_id, actual_delay_ms)`
 
-#### 3.4 Create Interference Launch Files
+#### 3.4 Update CMakeLists for Interference Experiment
+**File**: `packages/src/interference_experiment/CMakeLists.txt`
+- [ ] Add executable for `monte_carlo_interference_main`
+- [ ] Add executable for `yolo_interference_main`
+- [ ] Link against required dependencies:
+  - anytime_monte_carlo library
+  - anytime_yolo library
+  - rclcpp
+  - anytime_core
+- [ ] Install executables
+
+#### 3.5 Create Interference Launch Files
 **File**: `packages/src/interference_experiment/launch/monte_carlo_interference.launch.py` (NEW)
-- [ ] Create launch file that loads components into same executor:
-  - AnytimeActionServer (Monte Carlo) component
-  - AnytimeActionClient (Monte Carlo) component
-  - InterferenceTimer component
+- [ ] Create launch file that starts:
+  - `monte_carlo_interference_main` executable with appropriate parameters
 - [ ] Support parameters:
   - executor_type: [single_threaded, multi_threaded]
   - batch_size for Monte Carlo
   - timer_period for interference timer
   - is_reactive_proactive
+  - enable_interference: [true, false] - controls whether interference timer is active
 
 **File**: `packages/src/interference_experiment/launch/yolo_interference.launch.py` (NEW)
-- [ ] Create launch file that loads components into same executor:
-  - AnytimeActionServer (YOLO) component
-  - AnytimeActionClient (YOLO) component
-  - InterferenceTimer component
+- [ ] Create launch file that starts:
+  - video_publisher node (separate process)
+  - `yolo_interference_main` executable with appropriate parameters
 - [ ] Support parameters:
   - executor_type: [single_threaded, multi_threaded]
   - batch_size for YOLO
   - timer_period for interference timer
   - is_reactive_proactive, is_sync_async
+  - enable_interference: [true, false] - controls whether interference timer is active
 
 #### 3.5 Create Interference Evaluation Script
 **File**: `experiments/interference/evaluate_interference.py`
@@ -295,33 +311,37 @@ Demonstrate how batch size affects concurrent task execution by running an inter
   - Batch sizes: [1, 64, 4096, 65536] (show extreme differences)
   - Executor: [single_threaded, multi_threaded]
   - Timer period: [10ms, 50ms, 100ms]
+  - enable_interference: true (for Experiment 3 only)
 - [ ] Create configs for YOLO interference:
   - Batch sizes: [1, 5, 15, 25]
   - Executor: [single_threaded, multi_threaded]
   - Timer period: [50ms, 100ms]
+  - enable_interference: true (for Experiment 3 only)
+- [ ] **Note**: For Experiments 1 and 2, the same executables can be used with enable_interference=false to run without the interference timer
 
 #### 3.7 Create Bash Execution Script
 **File**: `experiments/interference/run_interference_experiments.sh`
-- [ ] **Monte Carlo Interference Tests**:
+- [ ] **Monte Carlo Interference Tests** (Experiment 3 only):
   - For each configuration:
     - Start LTTng tracing
-    - Launch `monte_carlo_interference.launch.py` with config
+    - Launch `monte_carlo_interference.launch.py` with enable_interference=true
     - Run for fixed duration (e.g., 60 seconds)
     - Stop tracing
     - Save trace with config details
   - Multiple trials per configuration
   
-- [ ] **YOLO Interference Tests**:
+- [ ] **YOLO Interference Tests** (Experiment 3 only):
   - For each configuration:
     - Start LTTng tracing
-    - Launch video_publisher
-    - Launch `yolo_interference.launch.py` with config
+    - Launch `yolo_interference.launch.py` with enable_interference=true (includes video_publisher)
     - Wait for video_publisher completion
     - Stop tracing
     - Save trace with config details
   - Multiple trials per configuration
   
 - [ ] Call `evaluate_interference.py` after all runs complete
+
+**Note**: For Experiments 1 and 2, the same executables can be launched with enable_interference=false, eliminating the interference timer entirely and allowing the server/client to run in isolation for baseline measurements.
 
 ---
 
@@ -410,63 +430,60 @@ experiments/
 3. Add tracepoints to `anytime_yolo/src/anytime_management.cpp`
 4. Build and test tracepoints work
 
-### Phase B: Component Conversion
-5. Create Monte Carlo server component
-6. Create Monte Carlo client component
-7. Update Monte Carlo CMakeLists.txt
-8. Create YOLO server component
-9. Create YOLO client component
-10. Update YOLO CMakeLists.txt
-11. Create/update interference timer component
-12. Build and test components work
+### Phase B: Interference Main Executables
+5. Create `monte_carlo_interference_main.cpp`
+6. Create `yolo_interference_main.cpp`
+7. Create/update interference timer node
+8. Update `interference_experiment/CMakeLists.txt`
+9. Build and test interference executables work
 
 ### Phase C: Launch Files for Interference
-13. Create `monte_carlo_interference.launch.py`
-14. Create `yolo_interference.launch.py`
-15. Test launch files with components
+10. Create `monte_carlo_interference.launch.py`
+11. Create `yolo_interference.launch.py`
+12. Test launch files with executables
 
 ### Phase D: Experiment 1 Setup
-16. Create `experiments/monte_carlo/` directory structure
-17. Create Monte Carlo config files
-18. Create `run_monte_carlo_experiments.sh`
-19. Create `evaluate_monte_carlo.py`
+13. Create `experiments/monte_carlo/` directory structure
+14. Create Monte Carlo config files
+15. Create `run_monte_carlo_experiments.sh`
+16. Create `evaluate_monte_carlo.py`
 
 ### Phase E: Experiment 2 Setup
-20. Create `experiments/yolo/` directory structure
-21. Create YOLO config files
-22. Create `run_yolo_experiments.sh`
-23. Create `analyze_quality.py`
-24. Create `evaluate_yolo.py`
+17. Create `experiments/yolo/` directory structure
+18. Create YOLO config files
+19. Create `run_yolo_experiments.sh`
+20. Create `analyze_quality.py`
+21. Create `evaluate_yolo.py`
 
 ### Phase F: Experiment 3 Setup
-25. Create `experiments/interference/` directory structure
-26. Create interference config files
-27. Create `run_interference_experiments.sh`
-28. Create `evaluate_interference.py`
+22. Create `experiments/interference/` directory structure
+23. Create interference config files
+24. Create `run_interference_experiments.sh`
+25. Create `evaluate_interference.py`
 
 ### Phase G: Common Utilities
-29. Create `experiments/common/tracing_utils.py`
-30. Create `experiments/common/plotting_utils.py`
-31. Create `experiments/common/metrics_utils.py`
+26. Create `experiments/common/tracing_utils.py`
+27. Create `experiments/common/plotting_utils.py`
+28. Create `experiments/common/metrics_utils.py`
 
 ### Phase H: Master Scripts and Documentation
-32. Create `experiments/run_all_experiments.sh`
-33. Create all README.md files
-34. Create master `experiments/README.md`
+29. Create `experiments/run_all_experiments.sh`
+30. Create all README.md files
+31. Create master `experiments/README.md`
 
 ### Phase I: Testing and Validation
-35. Run dry-run of Experiment 1
-36. Run dry-run of Experiment 2
-37. Run dry-run of Experiment 3
-38. Validate all plots and metrics
-39. Document any issues and fixes
+32. Run dry-run of Experiment 1
+33. Run dry-run of Experiment 2
+34. Run dry-run of Experiment 3
+35. Validate all plots and metrics
+36. Document any issues and fixes
 
 ### Phase J: Production Runs
-40. Run full Experiment 1 (multiple trials)
-41. Run full Experiment 2 (all phases)
-42. Run full Experiment 3 (all configurations)
-43. Generate final plots and tables for paper
-44. Archive results
+37. Run full Experiment 1 (multiple trials)
+38. Run full Experiment 2 (all phases)
+39. Run full Experiment 3 (all configurations)
+40. Generate final plots and tables for paper
+41. Archive results
 
 ---
 
@@ -535,7 +552,7 @@ experiments/
 ## Timeline Estimate
 
 - **Phase A** (Tracepoints): 2-3 hours
-- **Phase B** (Components): 4-5 hours
+- **Phase B** (Interference Mains): 3-4 hours
 - **Phase C** (Launch files): 2 hours
 - **Phase D** (Exp 1 Setup): 3-4 hours
 - **Phase E** (Exp 2 Setup): 4-5 hours
@@ -545,7 +562,7 @@ experiments/
 - **Phase I** (Testing): 3-4 hours
 - **Phase J** (Production): Varies by experiment duration
 
-**Total Estimated Setup Time**: 25-35 hours
+**Total Estimated Setup Time**: 24-33 hours
 **Production Run Time**: Depends on trial count and duration
 
 ---
