@@ -44,46 +44,39 @@ public:
 
   // ----------------- Domain-Specific Implementations -----------------
 
-  void compute_iteration() override
+  void compute_single_iteration() override
   {
-    RCLCPP_DEBUG(this->node_->get_logger(), "YOLO compute iteration called");
+    RCLCPP_DEBUG(this->node_->get_logger(), "YOLO compute single iteration called");
 
+    void (*callback)(void *) = nullptr;
+    if constexpr (isSyncAsync) {
+      callback = forward_finished_callback;
+    }
+
+    RCLCPP_DEBUG(this->node_->get_logger(), "Callback function is null: %d", callback == nullptr);
+    RCLCPP_DEBUG(this->node_->get_logger(), "Calling inferStep");
+
+    yolo_.inferStep(*yolo_state_, isSyncAsync, callback, this);
+
+    RCLCPP_DEBUG(this->node_->get_logger(), "Finished single iteration");
+
+    if constexpr (!isSyncAsync) {
+      // Increment processed layers counter for sync mode
+      processed_layers_++;
+      RCLCPP_DEBUG(this->node_->get_logger(), "Processed layers: %d", processed_layers_);
+      this->send_feedback();
+    }
+    // Async mode: callback handles layer counting and feedback
+  }
+
+  // Override to limit iterations by remaining layers
+  int get_batch_iterations() const override
+  {
     constexpr int MAX_NETWORK_LAYERS = 25;
     int max_layers = MAX_NETWORK_LAYERS;
     int layers_left = max_layers - processed_layers_;
     int iterations = std::min(this->batch_size_, layers_left);
-
-    for (int i = 0; i < iterations; i++) {
-      if (
-        this->goal_handle_->is_canceling() || !this->goal_handle_->is_executing() ||
-        !this->is_running()) {
-        RCLCPP_DEBUG(this->node_->get_logger(), "Goal handle is canceling, stopping computation");
-        return;
-      }
-
-      RCLCPP_DEBUG(this->node_->get_logger(), "Computing batch part %d", i);
-
-      void (*callback)(void *) = nullptr;
-      if constexpr (isSyncAsync) {
-        callback = forward_finished_callback;
-      }
-
-      RCLCPP_DEBUG(this->node_->get_logger(), "Callback function is null: %d", callback == nullptr);
-      RCLCPP_DEBUG(this->node_->get_logger(), "Calling inferStep");
-
-      yolo_.inferStep(*yolo_state_, isSyncAsync, callback, this);
-
-      RCLCPP_DEBUG(this->node_->get_logger(), "Finished batch part %d", i);
-
-      if constexpr (!isSyncAsync) {
-        // Increment processed layers counter for sync mode
-        processed_layers_++;
-        RCLCPP_DEBUG(this->node_->get_logger(), "Processed layers: %d", processed_layers_);
-        this->send_feedback();
-      }
-      // Async mode: callback handles layer counting and feedback
-    }
-    RCLCPP_DEBUG(this->node_->get_logger(), "Finished computing");
+    return iterations;
   }
 
   void populate_feedback(std::shared_ptr<Anytime::Feedback> feedback) override
@@ -242,29 +235,29 @@ public:
   {
     auto this_ptr = static_cast<AnytimeManagement *>(userData);
 
-    RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Forward finished");
+    RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Forward finished callback");
 
-    if constexpr (isReactiveProactive) {
-      if (
-        this_ptr->goal_handle_->is_canceling() || !this_ptr->goal_handle_->is_executing() ||
-        !this_ptr->is_running()) {
-        RCLCPP_DEBUG(
-          this_ptr->node_->get_logger(), "Goal handle is canceling, stopping computation");
-        return;
-      }
+    // Check if we should stop processing
+    if (
+      this_ptr->goal_handle_->is_canceling() || !this_ptr->goal_handle_->is_executing() ||
+      !this_ptr->is_running()) {
+      RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Goal handle is canceling, stopping computation");
+      return;
     }
 
     // Increment processed layers counter for async mode
     this_ptr->processed_layers_++;
     RCLCPP_DEBUG(
       this_ptr->node_->get_logger(), "Processed layers: %d", this_ptr->processed_layers_);
-    this_ptr->send_feedback();
 
-    // Call when processed_layers_ is a multiple of batch_size_ or when reaching/exceeding 25
+    // Trigger the waitable when batch is complete or when reaching/exceeding max layers
+    // This allows the main anytime function to continue with the next iteration
     if (
       (this_ptr->processed_layers_ % this_ptr->batch_size_ == 0) ||
-      (this_ptr->processed_layers_ >= 25)) {
-      RCLCPP_DEBUG(this_ptr->node_->get_logger(), "Calculating result from callback function");
+      (this_ptr->processed_layers_ >= MAX_NETWORK_LAYERS)) {
+      RCLCPP_DEBUG(
+        this_ptr->node_->get_logger(), "Batch complete (%d layers processed), triggering waitable",
+        this_ptr->processed_layers_);
       this_ptr->notify_waitable();
     }
   }

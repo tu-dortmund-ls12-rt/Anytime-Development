@@ -19,7 +19,7 @@ public:
 
   // Domain-specific pure virtual functions that must be implemented by derived classes
   // These handle the actual computation logic
-  virtual void compute_iteration() = 0;  // The actual computation work
+  virtual void compute_single_iteration() = 0;  // Single iteration of computation work
   virtual void populate_feedback(std::shared_ptr<typename InterfaceType::Feedback> feedback) = 0;
   virtual void populate_result(std::shared_ptr<typename InterfaceType::Result> result) = 0;
   virtual void reset_domain_state() = 0;   // Reset domain-specific state
@@ -30,6 +30,10 @@ public:
   // Requirements for get_iteration_callback, sends feedback and calls notify_waitable
   // when batch is complete
   virtual void * get_iteration_callback() { return nullptr; }
+
+  // Optional: override to customize the number of batch iterations
+  // Default is batch_size_, but YOLO needs to limit by remaining layers
+  virtual int get_batch_iterations() const { return batch_size_; }
 
   // Combined unified anytime function that handles compute, result, and finish checks
   // This replaces the previous three-function pattern with a single state machine
@@ -44,12 +48,6 @@ public:
 
     // Step 1: Compute iteration
     compute();
-
-    // Step 2: Send feedback (synchronous mode only)
-    if (get_iteration_callback() == nullptr) {
-      send_feedback();
-    }
-    // Async mode: callback will handle feedback
 
     // Step 3: Check if we should finish
     bool should_finish_now = should_finish();
@@ -71,6 +69,7 @@ public:
         node_->get_logger(), "Reactive function finished, should finish: %d, should cancel: %d",
         should_finish_now, should_cancel);
     } else if (is_running()) {
+      send_feedback();
       // Continue with next iteration
       notify_waitable();
     }
@@ -88,11 +87,7 @@ public:
     // Step 1: Compute iteration
     compute();
 
-    // Step 2: Calculate and send result/feedback
-    calculate_result();
-    send_feedback();
-
-    // Step 3: Check if we should finish
+    // Step 2: Check if we should finish
     bool should_finish_now = should_finish();
     bool should_cancel = goal_handle_->is_canceling();
 
@@ -109,6 +104,9 @@ public:
         node_->get_logger(), "Proactive function finished, should finish: %d, should cancel: %d",
         should_finish_now, should_cancel);
     } else if (is_running()) {
+      // Step 3: Calculate and send result/feedback
+      calculate_result();
+      send_feedback();
       // Continue with next iteration
       notify_waitable();
     }
@@ -127,8 +125,24 @@ public:
     // Start timing
     auto start_time = node_->now();
 
-    // Call domain-specific computation
-    compute_iteration();
+    // Get the number of iterations for this batch
+    int iterations = get_batch_iterations();
+
+    // Execute batch iterations
+    for (int i = 0; i < iterations; i++) {
+      // Check if we should stop processing
+      if (goal_handle_->is_canceling() || !goal_handle_->is_executing() || !is_running()) {
+        RCLCPP_DEBUG(node_->get_logger(), "Goal handle is canceling, stopping computation");
+        return;
+      }
+
+      RCLCPP_DEBUG(node_->get_logger(), "Computing batch iteration %d", i);
+
+      // Call domain-specific single iteration computation
+      compute_single_iteration();
+
+      RCLCPP_DEBUG(node_->get_logger(), "Finished batch iteration %d", i);
+    }
 
     // End timing
     auto end_time = node_->now();
@@ -197,7 +211,7 @@ public:
   {
     RCLCPP_DEBUG(node_->get_logger(), "Notify cancel function");
     // Trigger the waitable to process the cancellation
-    this->notify_waitable();
+    // this->notify_waitable();
     RCLCPP_DEBUG(node_->get_logger(), "Notify cancel function finished");
   }
 

@@ -28,20 +28,18 @@ public:
 
   // ----------------- Domain-Specific Implementations -----------------
 
-  void compute_iteration() override
+  void compute_single_iteration() override
   {
-    RCLCPP_DEBUG(this->node_->get_logger(), "Monte Carlo compute iteration called");
+    RCLCPP_DEBUG(this->node_->get_logger(), "Monte Carlo compute single iteration called");
 
-    for (int i = 0; i < this->batch_size_; i++) {
-      x = (float)rand() / RAND_MAX;
-      y = (float)rand() / RAND_MAX;
+    x = (float)rand() / RAND_MAX;
+    y = (float)rand() / RAND_MAX;
 
-      if (sqrt(pow(x, 2) + pow(y, 2)) <= 1) {
-        count_inside_++;
-      }
-      count_total_++;
-      loop_count_++;
+    if (sqrt(pow(x, 2) + pow(y, 2)) <= 1) {
+      count_inside_++;
     }
+    count_total_++;
+    loop_count_++;
   }
 
   void populate_feedback(std::shared_ptr<Anytime::Feedback> feedback) override
