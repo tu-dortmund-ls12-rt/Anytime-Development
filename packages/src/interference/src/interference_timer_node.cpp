@@ -1,5 +1,7 @@
 #include "interference/interference_timer_node.hpp"
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include <chrono>
 
 namespace interference
@@ -58,3 +60,6 @@ void InterferenceTimerNode::timer_callback()
 }
 
 }  // namespace interference
+
+// Register the component
+RCLCPP_COMPONENTS_REGISTER_NODE(interference::InterferenceTimerNode)

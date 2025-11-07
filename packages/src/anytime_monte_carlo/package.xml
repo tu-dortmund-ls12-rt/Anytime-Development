@@ -13,6 +13,7 @@
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>rclcpp_action</depend>
+  <depend>rclcpp_components</depend>
   <depend>anytime_interfaces</depend>
   <depend>anytime_core</depend>
 
@@ -21,5 +22,7 @@
   
   <export>
     <build_type>ament_cmake</build_type>
+    <rclcpp_components plugin="${prefix}/lib/libanytime_mc_client_lib.so"/>
+    <rclcpp_components plugin="${prefix}/lib/libanytime_mc_server_lib.so"/>
   </export>
 </package>

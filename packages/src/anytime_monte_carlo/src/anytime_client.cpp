@@ -1,11 +1,14 @@
 #include "anytime_monte_carlo/anytime_client.hpp"
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <numeric>
 #include <vector>
+
 
 AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 : anytime_core::AnytimeClientBase<Anytime>("anytime_action_client", options)
@@ -114,3 +117,6 @@ void AnytimeActionClient::cancel_timeout_callback()
 
   RCLCPP_DEBUG(this->get_logger(), "Cancel request sent");
 }
+
+// Register the component
+RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionClient)

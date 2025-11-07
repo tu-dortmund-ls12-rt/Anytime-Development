@@ -1,5 +1,7 @@
 #include "anytime_yolo/anytime_server.hpp"
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include <rclcpp/logging.hpp>
 
 #include <map>
@@ -16,9 +18,6 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
   std::string sync_async_str = this->declare_parameter("is_sync_async", "sync");
   int batch_size = this->declare_parameter("batch_size", 1);
   std::string weights_path = this->declare_parameter("weights_path", "");
-  std::string single_multi_str = this->declare_parameter("is_single_multi", "single");
-  std::string passive_cooperative_str =
-    this->declare_parameter("is_passive_cooperative", "passive");
 
   // Convert strings to booleans
   bool is_reactive_proactive = (reactive_proactive_str == "proactive");
@@ -28,8 +27,6 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
   RCLCPP_INFO(this->get_logger(), "  is_reactive_proactive: %s", reactive_proactive_str.c_str());
   RCLCPP_INFO(this->get_logger(), "  is_sync_async: %s", sync_async_str.c_str());
   RCLCPP_INFO(this->get_logger(), "  batch_size: %d", batch_size);
-  RCLCPP_INFO(this->get_logger(), "  threading_mode: %s", single_multi_str.c_str());
-  RCLCPP_INFO(this->get_logger(), "  is_passive_cooperative: %s", passive_cooperative_str.c_str());
   RCLCPP_INFO(this->get_logger(), "  weights_path: %s", weights_path.c_str());
 
   RCLCPP_DEBUG(
@@ -67,3 +64,6 @@ AnytimeActionServer::create_anytime_management(
     }
   }
 }
+
+// Register the component
+RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionServer)

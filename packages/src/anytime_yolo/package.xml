@@ -25,5 +25,7 @@
   
   <export>
     <build_type>ament_cmake</build_type>
+    <rclcpp_components plugin="${prefix}/lib/libanytime_yolo_client_lib.so"/>
+    <rclcpp_components plugin="${prefix}/lib/libanytime_yolo_server_lib.so"/>
   </export>
 </package>

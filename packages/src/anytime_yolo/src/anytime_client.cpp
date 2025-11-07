@@ -1,5 +1,7 @@
 #include "anytime_yolo/anytime_client.hpp"
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include <rclcpp/logging.hpp>
 
 #include <algorithm>
@@ -8,6 +10,7 @@
 #include <fstream>
 #include <numeric>
 #include <vector>
+
 
 AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 : anytime_core::AnytimeClientBase<Anytime>("anytime_action_client", options)
@@ -234,3 +237,6 @@ void AnytimeActionClient::cancel_response_callback(
   (void)cancel_response;
   RCLCPP_DEBUG(this->get_logger(), "Cancel request accepted by server");
 }
+
+// Register the component
+RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionClient)

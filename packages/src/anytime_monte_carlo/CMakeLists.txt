@@ -19,13 +19,14 @@ find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(rclcpp_action REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(anytime_interfaces REQUIRED)
 find_package(anytime_core REQUIRED)
 
 # Include Cpp "include" directory
 include_directories(include)
 
-set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "anytime_core")
+set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "rclcpp_components" "anytime_core")
 
 # Add libraries
 add_library(anytime_mc_client_lib SHARED src/anytime_client.cpp)
@@ -42,6 +43,15 @@ target_include_directories(anytime_mc_server_lib PUBLIC
 # Link dependencies
 ament_target_dependencies(anytime_mc_client_lib ${anytime_dependencies})
 ament_target_dependencies(anytime_mc_server_lib ${anytime_dependencies})
+
+# Register components
+rclcpp_components_register_node(anytime_mc_client_lib
+  PLUGIN "AnytimeActionClient"
+  EXECUTABLE anytime_mc_client_component)
+
+rclcpp_components_register_node(anytime_mc_server_lib
+  PLUGIN "AnytimeActionServer"
+  EXECUTABLE anytime_mc_server_component)
 
 # Create executables from main files
 add_executable(anytime_mc_client src/anytime_client_main.cpp)
@@ -61,9 +71,14 @@ install(TARGETS
 install(TARGETS 
   anytime_mc_client_lib
   anytime_mc_server_lib
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
+)
+
+install(DIRECTORY include/
+  DESTINATION include
 )
 
 install(DIRECTORY
@@ -76,5 +91,10 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+ament_export_include_directories(include)
+ament_export_libraries(anytime_mc_client_lib anytime_mc_server_lib)
+ament_export_targets(export_${PROJECT_NAME})
+ament_export_dependencies(${anytime_dependencies})
 
 ament_package()

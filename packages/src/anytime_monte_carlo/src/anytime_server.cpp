@@ -1,5 +1,7 @@
 #include "anytime_monte_carlo/anytime_server.hpp"
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 #include <rclcpp/logging.hpp>
 
 // Constructor for the AnytimeActionServer class
@@ -12,7 +14,6 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
   // Read the ros2 parameters
   std::string reactive_proactive_str = this->declare_parameter("is_reactive_proactive", "reactive");
   int batch_size = this->declare_parameter("batch_size", 1);
-  std::string single_multi_str = this->declare_parameter("is_single_multi", "single");
 
   // Convert strings to booleans
   bool is_reactive_proactive = (reactive_proactive_str == "proactive");
@@ -20,7 +21,6 @@ AnytimeActionServer::AnytimeActionServer(rclcpp::NodeOptions options)
   RCLCPP_INFO(this->get_logger(), "Monte Carlo Action Server initialized with parameters:");
   RCLCPP_INFO(this->get_logger(), "  is_reactive_proactive: %s", reactive_proactive_str.c_str());
   RCLCPP_INFO(this->get_logger(), "  batch_size: %d", batch_size);
-  RCLCPP_INFO(this->get_logger(), "  threading_mode: %s", single_multi_str.c_str());
 
   RCLCPP_DEBUG(
     this->get_logger(), "is_reactive_proactive: %s",
@@ -46,3 +46,6 @@ AnytimeActionServer::create_anytime_management(
     return std::make_shared<AnytimeManagement<false>>(node, batch_size);
   }
 }
+
+// Register the component
+RCLCPP_COMPONENTS_REGISTER_NODE(AnytimeActionServer)
