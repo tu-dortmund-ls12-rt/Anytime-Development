@@ -1,0 +1,19 @@
+anytime_server:
+  ros__parameters:
+    # Anytime algorithm mode
+    is_reactive_proactive: "proactive"  # Options: "reactive", "proactive"
+    
+    # Threading configuration
+    multi_threading: true  # Enable/disable multi-threading
+    
+    # Batch processing configuration
+    batch_size: 1  # Number of iterations to compute per batch
+    
+    # Synchronization mode
+    is_sync_async: "sync"  # Options: "sync", "async"
+    
+    # YOLO weights path (empty means use default from package share directory)
+    weights_path: ""  # Path to the anytimeyolo weights directory
+    
+    # Logging configuration
+    log_level: "info"  # Options: "debug", "info", "warn", "error", "fatal"
