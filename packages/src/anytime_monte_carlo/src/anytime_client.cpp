@@ -72,7 +72,9 @@ void AnytimeActionClient::on_goal_rejected()
 
 void AnytimeActionClient::on_goal_accepted(AnytimeGoalHandle::SharedPtr goal_handle)
 {
-  (void)goal_handle;
+  // Store the goal handle (already done in base class, but ensure it's set)
+  goal_handle_ = goal_handle;
+  
   // Reset the cancel timeout timer to start counting down
   cancel_timeout_timer_->reset();
 }
@@ -101,6 +103,12 @@ void AnytimeActionClient::post_processing(const AnytimeGoalHandle::WrappedResult
 
 void AnytimeActionClient::cleanup_after_result()
 {
+  // Cancel the timeout timer if it's still running
+  cancel_timeout_timer_->cancel();
+  
+  // Clear the goal handle to prevent stale references
+  goal_handle_.reset();
+  
   // Reset the timer to allow sending new goals
   timer_->reset();
 }
@@ -112,10 +120,19 @@ void AnytimeActionClient::cancel_timeout_callback()
   // Cancel the timeout timer to prevent multiple cancel requests
   cancel_timeout_timer_->cancel();
 
-  // Send a cancel request for the current goal
-  action_client_->async_cancel_goal(goal_handle_);
+  // Check if goal_handle_ is valid before attempting to cancel
+  if (!goal_handle_) {
+    RCLCPP_WARN(this->get_logger(), "No active goal to cancel");
+    return;
+  }
 
-  RCLCPP_DEBUG(this->get_logger(), "Cancel request sent");
+  // Send a cancel request for the current goal
+  try {
+    auto cancel_future = action_client_->async_cancel_goal(goal_handle_);
+    RCLCPP_DEBUG(this->get_logger(), "Cancel request sent");
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to send cancel request: %s", e.what());
+  }
 }
 
 // Register the component
