@@ -1,6 +1,7 @@
 #include "interference/interference_timer_node.hpp"
 
 #include "rclcpp_components/register_node_macro.hpp"
+#include "anytime_tracing/anytime_tracetools.h"
 
 #include <chrono>
 
@@ -16,6 +17,13 @@ InterferenceTimerNode::InterferenceTimerNode(const rclcpp::NodeOptions & options
 
   this->get_parameter("timer_period_ms", timer_period_ms_);
   this->get_parameter("execution_time_ms", execution_time_ms_);
+
+  // Add custom tracepoint for interference timer initialization
+  ANYTIME_TRACEPOINT(
+    interference_timer_init,
+    static_cast<const void *>(this->get_node_base_interface().get()),
+    timer_period_ms_,
+    execution_time_ms_);
 
   RCLCPP_INFO(
     this->get_logger(),

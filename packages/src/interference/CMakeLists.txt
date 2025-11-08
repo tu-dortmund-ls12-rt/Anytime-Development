@@ -9,11 +9,12 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(anytime_tracing REQUIRED)
 
 # Include directories
 include_directories(include)
 
-set(dependencies "rclcpp" "rclcpp_components")
+set(dependencies "rclcpp" "rclcpp_components" "anytime_tracing")
 
 # Create interference timer library
 add_library(interference_timer_lib SHARED
