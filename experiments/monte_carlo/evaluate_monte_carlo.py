@@ -18,6 +18,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 # Configuration
 EXPERIMENT_DIR = Path("/home/vscode/workspace/experiments/monte_carlo")
@@ -44,30 +46,41 @@ class TraceEvent:
 
 def parse_trace_directory(trace_dir):
     """
-    Parse a single trace directory using babeltrace
-
-    Returns:
-        List of TraceEvent objects
+    Parse a single trace directory using babeltrace with filtering
     """
     print(f"  Parsing trace: {trace_dir.name}")
 
-    # Run babeltrace to get trace data
+    # Use babeltrace2 with filter if available (faster)
     try:
+        # Try babeltrace2 first (newer, faster)
         result = subprocess.run(
-            ['babeltrace', str(trace_dir)],
+            ['babeltrace2', '--names', 'none', str(trace_dir)],
             capture_output=True,
             text=True,
             check=True
         )
-    except subprocess.CalledProcessError as e:
-        print(f"    Error running babeltrace: {e}")
-        return []
-    except FileNotFoundError:
-        print("    Error: babeltrace not found. Please install lttng-tools.")
-        return []
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fall back to babeltrace
+        try:
+            result = subprocess.run(
+                ['babeltrace', str(trace_dir)],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"    Error running babeltrace: {e}")
+            return []
+        except FileNotFoundError:
+            print("    Error: babeltrace not found. Please install lttng-tools.")
+            return []
+
+    # Pre-filter lines to only process anytime events
+    anytime_lines = [line for line in result.stdout.split(
+        '\n') if 'anytime:' in line]
 
     events = []
-    for line in result.stdout.split('\n'):
+    for line in anytime_lines:
         if not line.strip() or not 'anytime:' in line:
             continue
 
@@ -140,12 +153,17 @@ def extract_metrics_from_events(events, config_name):
     Returns:
         Dictionary with metrics
     """
+    # Parse batch_size from config_name (format: batch_<size>_<mode>_<threading>_run<N>)
+    config_parts = config_name.split('_')
+    batch_size = int(config_parts[1])  # Extract batch size from config name
+
     metrics = {
         'config': config_name,
+        'batch_size': batch_size,
         'total_batches': 0,
-        'total_iterations': 0,
+        'total_iterations': 0,  # Will be calculated as total_batches * batch_size
         'batch_times': [],  # Time per batch in ms
-        'iterations_per_batch': [],
+        'iterations_per_batch': [],  # Will be set to batch_size
         'cancellation_delays': [],  # Time from cancel to deactivate in ms
         'compute_times': [],  # Time spent in compute
         'feedback_times': [],  # Time spent sending feedback
@@ -161,7 +179,6 @@ def extract_metrics_from_events(events, config_name):
 
     # Track state for computing metrics
     current_compute_start = None
-    current_compute_iterations = 0
     current_feedback_start = None
     current_result_start = None
     cancel_request_time = None
@@ -175,7 +192,6 @@ def extract_metrics_from_events(events, config_name):
         # Track compute batches
         if event_name == 'anytime:anytime_compute_entry':
             current_compute_start = event.timestamp
-            current_compute_iterations = 0
             metrics['total_batches'] += 1
 
         elif event_name == 'anytime:anytime_compute_exit':
@@ -183,19 +199,10 @@ def extract_metrics_from_events(events, config_name):
                 batch_time_ms = (event.timestamp - current_compute_start) / 1e6
                 metrics['batch_times'].append(batch_time_ms)
                 metrics['compute_times'].append(batch_time_ms)
-                if current_compute_iterations > 0:
-                    metrics['iterations_per_batch'].append(
-                        current_compute_iterations)
                 current_compute_start = None
 
-        # Track iterations within a batch
-        elif event_name == 'anytime:anytime_compute_iteration':
-            current_compute_iterations += 1
-            metrics['total_iterations'] += 1
-
-        elif event_name == 'anytime:monte_carlo_iteration':
-            # Alternative way to count iterations
-            pass
+        # Note: anytime_compute_iteration is no longer tracked
+        # Iterations are calculated as: total_batches * batch_size
 
         # Track feedback timing
         elif event_name == 'anytime:anytime_send_feedback_entry':
@@ -270,14 +277,11 @@ def extract_metrics_from_events(events, config_name):
         metrics['avg_time_per_batch'] = 0
         metrics['std_time_per_batch'] = 0
 
-    if metrics['iterations_per_batch']:
-        metrics['avg_iterations_per_batch'] = np.mean(
-            metrics['iterations_per_batch'])
-        metrics['std_iterations_per_batch'] = np.std(
-            metrics['iterations_per_batch'])
-    else:
-        metrics['avg_iterations_per_batch'] = 0
-        metrics['std_iterations_per_batch'] = 0
+    # Calculate iterations from batch_size * total_batches
+    metrics['total_iterations'] = metrics['total_batches'] * batch_size
+    metrics['avg_iterations_per_batch'] = batch_size
+    # No variation since it's the configured batch_size
+    metrics['std_iterations_per_batch'] = 0
 
     if metrics['cancellation_delays']:
         metrics['avg_cancellation_delay'] = np.mean(
@@ -392,24 +396,22 @@ def generate_plots(aggregated_metrics):
 
     # Plot 1: Batch Size vs Average Iterations per Batch
     print("  - Batch size vs iterations per batch")
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     for mode in ['reactive', 'proactive']:
-        ax = axes[0] if mode == 'reactive' else axes[1]
-
         for threading in ['single', 'multi']:
             data = df[(df['mode'] == mode) & (df['threading'] == threading)]
             data = data.sort_values('batch_size')
 
             ax.plot(data['batch_size'], data['avg_iterations_per_batch'],
-                    marker='o', label=f'{threading}-threaded', linewidth=2)
+                    marker='o', label=f'{mode}-{threading}', linewidth=2)
 
-        ax.set_xlabel('Batch Size')
-        ax.set_ylabel('Average Iterations per Batch')
-        ax.set_title(f'{mode.capitalize()} Mode')
-        ax.set_xscale('log')
-        ax.legend()
-        ax.grid(True)
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Average Iterations per Batch')
+    ax.set_title('Batch Size vs Average Iterations per Batch')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
 
     plt.tight_layout()
     plt.savefig(PLOTS_DIR / 'batch_size_vs_iterations.png', dpi=300)
@@ -417,24 +419,22 @@ def generate_plots(aggregated_metrics):
 
     # Plot 2: Batch Size vs Time per Batch
     print("  - Batch size vs time per batch")
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     for mode in ['reactive', 'proactive']:
-        ax = axes[0] if mode == 'reactive' else axes[1]
-
         for threading in ['single', 'multi']:
             data = df[(df['mode'] == mode) & (df['threading'] == threading)]
             data = data.sort_values('batch_size')
 
             ax.plot(data['batch_size'], data['avg_time_per_batch'],
-                    marker='o', label=f'{threading}-threaded', linewidth=2)
+                    marker='o', label=f'{mode}-{threading}', linewidth=2)
 
-        ax.set_xlabel('Batch Size')
-        ax.set_ylabel('Average Time per Batch (ms)')
-        ax.set_title(f'{mode.capitalize()} Mode')
-        ax.set_xscale('log')
-        ax.legend()
-        ax.grid(True)
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Average Time per Batch (ms)')
+    ax.set_title('Batch Size vs Average Time per Batch')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
 
     plt.tight_layout()
     plt.savefig(PLOTS_DIR / 'batch_size_vs_time.png', dpi=300)
@@ -444,71 +444,53 @@ def generate_plots(aggregated_metrics):
     print("  - Cancellation delay comparison")
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    # Filter out entries with no cancellation data
-    df_cancel = df[df['avg_cancellation_delay'] > 0]
+    # Get all unique batch sizes present in the data
+    all_batch_sizes = sorted(df['batch_size'].unique())
+    x = np.arange(len(all_batch_sizes))
+    width = 0.2
 
-    if not df_cancel.empty:
-        x = np.arange(len(df_cancel['batch_size'].unique()))
-        width = 0.2
+    for i, mode in enumerate(['reactive', 'proactive']):
+        for j, threading in enumerate(['single', 'multi']):
+            data = df[(df['mode'] == mode) & (df['threading'] == threading)]
 
-        for i, mode in enumerate(['reactive', 'proactive']):
-            for j, threading in enumerate(['single', 'multi']):
-                data = df_cancel[(df_cancel['mode'] == mode) & (
-                    df_cancel['threading'] == threading)]
-                data = data.sort_values('batch_size')
+            if data.empty:
+                continue
 
+            data = data.sort_values('batch_size')
+
+            # Create aligned arrays for x positions and y values
+            y_values = []
+            x_positions = []
+            for batch_size in all_batch_sizes:
+                batch_data = data[data['batch_size'] == batch_size]
+                if not batch_data.empty:
+                    y_values.append(
+                        batch_data['avg_cancellation_delay'].iloc[0])
+                    x_positions.append(all_batch_sizes.index(batch_size))
+
+            if y_values:
                 offset = (i * 2 + j - 1.5) * width
-                ax.bar(x + offset, data['avg_cancellation_delay'], width,
+                ax.bar(np.array(x_positions) + offset, y_values, width,
                        label=f'{mode}-{threading}')
 
-        ax.set_xlabel('Batch Size')
-        ax.set_ylabel('Average Cancellation Delay (ms)')
-        ax.set_title('Cancellation Delay Comparison')
-        ax.set_xticks(x)
-        ax.set_xticklabels(df_cancel['batch_size'].unique())
-        ax.legend()
-        ax.grid(True, axis='y')
-
-        plt.tight_layout()
-        plt.savefig(PLOTS_DIR / 'cancellation_delay.png', dpi=300)
-    else:
-        print("    No cancellation data found")
-
-    plt.close()
-
-    # Plot 4: Threading Comparison
-    print("  - Threading comparison")
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-
-    for idx, metric in enumerate(['avg_iterations_per_batch', 'avg_time_per_batch']):
-        ax = axes[idx]
-
-        for mode in ['reactive', 'proactive']:
-            for threading in ['single', 'multi']:
-                data = df[(df['mode'] == mode) & (
-                    df['threading'] == threading)]
-                data = data.sort_values('batch_size')
-
-                linestyle = '-' if threading == 'multi' else '--'
-                ax.plot(data['batch_size'], data[metric],
-                        marker='o', label=f'{mode}-{threading}',
-                        linewidth=2, linestyle=linestyle)
-
-        ax.set_xlabel('Batch Size')
-        ylabel = 'Iterations per Batch' if idx == 0 else 'Time per Batch (ms)'
-        ax.set_ylabel(ylabel)
-        ax.set_title(f'Threading Impact on {ylabel}')
-        ax.set_xscale('log')
-        ax.legend()
-        ax.grid(True)
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Average Cancellation Delay (ms)')
+    ax.set_title('Cancellation Delay Comparison')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_batch_sizes)
+    ax.legend()
+    ax.grid(True, axis='y')
 
     plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'threading_comparison.png', dpi=300)
+    plt.savefig(PLOTS_DIR / 'cancellation_delay.png', dpi=300)
     plt.close()
 
-    # Plot 5: Total Throughput (iterations/second)
+    # Plot 4: Threading Comparison (removed - redundant with plots 1 and 2)
+    # This plot is no longer needed since all configs are now on single plots
+
+    # Plot 4: Total Throughput (iterations/second)
     print("  - Throughput analysis")
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     # Calculate throughput: iterations per batch / (time per batch / 1000)
     df['throughput'] = df['avg_iterations_per_batch'] / \
@@ -524,7 +506,7 @@ def generate_plots(aggregated_metrics):
 
     ax.set_xlabel('Batch Size')
     ax.set_ylabel('Throughput (iterations/second)')
-    ax.set_title('Monte Carlo Throughput')
+    ax.set_title('Batch Size vs Throughput')
     ax.set_xscale('log')
     ax.legend()
     ax.grid(True)
@@ -533,103 +515,150 @@ def generate_plots(aggregated_metrics):
     plt.savefig(PLOTS_DIR / 'throughput.png', dpi=300)
     plt.close()
 
-    # Plot 6: End-to-End Latency (Goal to Finish)
+    # Plot 5: End-to-End Latency (Goal to Finish)
     print("  - Goal to finish latency")
-    df_latency = df[df['avg_goal_to_finish_latency'] > 0]
+    fig, ax = plt.subplots(figsize=(12, 8))
 
-    if not df_latency.empty:
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    for mode in ['reactive', 'proactive']:
+        for threading in ['single', 'multi']:
+            data = df[(df['mode'] == mode) & (df['threading'] == threading)]
+            data = data.sort_values('batch_size')
 
-        for mode in ['reactive', 'proactive']:
-            ax = axes[0] if mode == 'reactive' else axes[1]
+            if not data.empty:
+                ax.plot(data['batch_size'], data['avg_goal_to_finish_latency'],
+                        marker='o', label=f'{mode}-{threading}', linewidth=2)
 
-            for threading in ['single', 'multi']:
-                data = df_latency[(df_latency['mode'] == mode) & (
-                    df_latency['threading'] == threading)]
-                data = data.sort_values('batch_size')
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Average Goal-to-Finish Latency (ms)')
+    ax.set_title('Batch Size vs Goal-to-Finish Latency')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
 
-                if not data.empty:
-                    ax.plot(data['batch_size'], data['avg_goal_to_finish_latency'],
-                            marker='o', label=f'{threading}-threaded', linewidth=2)
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / 'goal_to_finish_latency.png', dpi=300)
+    plt.close()
 
-            ax.set_xlabel('Batch Size')
-            ax.set_ylabel('Average Goal-to-Finish Latency (ms)')
-            ax.set_title(f'{mode.capitalize()} Mode')
-            ax.set_xscale('log')
-            ax.legend()
-            ax.grid(True)
-
-        plt.tight_layout()
-        plt.savefig(PLOTS_DIR / 'goal_to_finish_latency.png', dpi=300)
-        plt.close()
-    else:
-        print("    No goal-to-finish latency data found")
-
-    # Plot 7: Cancel Latency (Goal to Cancel)
+    # Plot 6: Cancel Latency (Goal to Cancel)
     print("  - Goal to cancel latency")
-    df_cancel_lat = df[df['avg_goal_to_cancel_latency'] > 0]
+    fig, ax = plt.subplots(figsize=(12, 8))
 
-    if not df_cancel_lat.empty:
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    for mode in ['reactive', 'proactive']:
+        for threading in ['single', 'multi']:
+            data = df[(df['mode'] == mode) & (df['threading'] == threading)]
+            data = data.sort_values('batch_size')
 
-        for mode in ['reactive', 'proactive']:
-            ax = axes[0] if mode == 'reactive' else axes[1]
+            if not data.empty:
+                ax.plot(data['batch_size'], data['avg_goal_to_cancel_latency'],
+                        marker='o', label=f'{mode}-{threading}', linewidth=2)
 
-            for threading in ['single', 'multi']:
-                data = df_cancel_lat[(df_cancel_lat['mode'] == mode) & (
-                    df_cancel_lat['threading'] == threading)]
-                data = data.sort_values('batch_size')
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Average Goal-to-Cancel Latency (ms)')
+    ax.set_title('Batch Size vs Goal-to-Cancel Latency')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
 
-                if not data.empty:
-                    ax.plot(data['batch_size'], data['avg_goal_to_cancel_latency'],
-                            marker='o', label=f'{threading}-threaded', linewidth=2)
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / 'goal_to_cancel_latency.png', dpi=300)
+    plt.close()
 
-            ax.set_xlabel('Batch Size')
-            ax.set_ylabel('Average Goal-to-Cancel Latency (ms)')
-            ax.set_title(f'{mode.capitalize()} Mode')
-            ax.set_xscale('log')
-            ax.legend()
-            ax.grid(True)
-
-        plt.tight_layout()
-        plt.savefig(PLOTS_DIR / 'goal_to_cancel_latency.png', dpi=300)
-        plt.close()
-    else:
-        print("    No goal-to-cancel latency data found")
-
-    # Plot 8: Cancel to Finish Latency
+    # Plot 7: Cancel to Finish Latency
     print("  - Cancel to finish latency")
-    df_cancel_finish = df[df['avg_cancel_to_finish_latency'] > 0]
+    fig, ax = plt.subplots(figsize=(12, 8))
 
-    if not df_cancel_finish.empty:
-        fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+    for mode in ['reactive', 'proactive']:
+        for threading in ['single', 'multi']:
+            data = df[(df['mode'] == mode) & (df['threading'] == threading)]
+            data = data.sort_values('batch_size')
 
-        for mode in ['reactive', 'proactive']:
-            ax = axes[0] if mode == 'reactive' else axes[1]
+            if not data.empty:
+                ax.plot(data['batch_size'], data['avg_cancel_to_finish_latency'],
+                        marker='o', label=f'{mode}-{threading}', linewidth=2)
 
-            for threading in ['single', 'multi']:
-                data = df_cancel_finish[(df_cancel_finish['mode'] == mode) & (
-                    df_cancel_finish['threading'] == threading)]
-                data = data.sort_values('batch_size')
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Average Cancel-to-Finish Latency (ms)')
+    ax.set_title('Batch Size vs Cancel-to-Finish Latency')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
 
-                if not data.empty:
-                    ax.plot(data['batch_size'], data['avg_cancel_to_finish_latency'],
-                            marker='o', label=f'{threading}-threaded', linewidth=2)
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / 'cancel_to_finish_latency.png', dpi=300)
+    plt.close()
 
-            ax.set_xlabel('Batch Size')
-            ax.set_ylabel('Average Cancel-to-Finish Latency (ms)')
-            ax.set_title(f'{mode.capitalize()} Mode')
-            ax.set_xscale('log')
-            ax.legend()
-            ax.grid(True)
+    # Plot 8: Total Iterations (batch_size * num_batches)
+    print("  - Total iterations completed")
+    fig, ax = plt.subplots(figsize=(12, 8))
 
-        plt.tight_layout()
-        plt.savefig(PLOTS_DIR / 'cancel_to_finish_latency.png', dpi=300)
-        plt.close()
-    else:
-        print("    No cancel-to-finish latency data found")
+    for mode in ['reactive', 'proactive']:
+        for threading in ['single', 'multi']:
+            data = df[(df['mode'] == mode) & (df['threading'] == threading)]
+            data = data.sort_values('batch_size')
+
+            if not data.empty:
+                ax.plot(data['batch_size'], data['total_iterations'],
+                        marker='o', label=f'{mode}-{threading}', linewidth=2)
+
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Total Iterations Completed')
+    ax.set_title('Batch Size vs Total Iterations Completed')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / 'total_iterations.png', dpi=300)
+    plt.close()
+
+    # Plot 9: Total Cancellation Time (goal_to_cancel + cancellation_delay)
+    print("  - Total cancellation time (start to cancel + cancellation delay)")
+
+    # Calculate combined cancellation time
+    df['total_cancellation_time'] = df['avg_goal_to_cancel_latency'] + \
+        df['avg_cancellation_delay']
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    for mode in ['reactive', 'proactive']:
+        for threading in ['single', 'multi']:
+            data = df[(df['mode'] == mode) & (df['threading'] == threading)]
+            data = data.sort_values('batch_size')
+
+            if not data.empty:
+                ax.plot(data['batch_size'], data['total_cancellation_time'],
+                        marker='o', label=f'{mode}-{threading}', linewidth=2)
+
+    ax.set_xlabel('Batch Size')
+    ax.set_ylabel('Total Cancellation Time (ms)')
+    ax.set_title(
+        'Batch Size vs Total Cancellation Time\n(Goal-to-Cancel + Cancellation Delay)')
+    ax.set_xscale('log')
+    ax.legend()
+    ax.grid(True)
+
+    plt.tight_layout()
+    plt.savefig(PLOTS_DIR / 'total_cancellation_time.png', dpi=300)
+    plt.close()
 
     print(f"  All plots saved to: {PLOTS_DIR}")
+
+
+def process_single_trace(trace_dir):
+    """Process a single trace directory (for parallel execution)"""
+    config_name = trace_dir.name
+    events = parse_trace_directory(trace_dir)
+
+    if not events:
+        print(f"  Warning: No events found in {config_name}")
+        return None
+
+    metrics = extract_metrics_from_events(events, config_name)
+    print(f"    {config_name}: Batches: {metrics['total_batches']}, "
+          f"Iterations: {metrics['total_iterations']}, "
+          f"Avg time/batch: {metrics['avg_time_per_batch']:.2f}ms")
+
+    return metrics
 
 
 def main():

@@ -13,13 +13,13 @@ RESULTS_DIR="${EXPERIMENT_DIR}/results"
 PACKAGES_DIR="${WORKSPACE_DIR}/packages"
 
 # Experiment parameters
-BATCH_SIZES=(1 64 4096 16384 65536 262144)
+BATCH_SIZES=(1 4096 65536)
 MODES=("reactive" "proactive")
 THREADING=("single" "multi")
 NUM_RUNS=1  # Number of trials per configuration
 
 # Duration for each experiment run (in seconds)
-RUN_DURATION=30
+RUN_DURATION=10
 
 echo "========================================="
 echo "Monte Carlo Experimental Evaluation"
@@ -72,10 +72,27 @@ for batch_size in "${BATCH_SIZES[@]}"; do
                 echo "  [1/5] Creating LTTng session..."
                 lttng create monte_carlo_exp --output="${trace_output}"
                 
-                # Enable all anytime tracepoints
-                echo "  [2/5] Enabling tracepoints..."
-                lttng enable-event --userspace 'anytime:*'
-                
+                # # Enable all anytime tracepoints
+                # echo "  [2/5] Enabling tracepoints..."
+                # lttng enable-event --userspace 'anytime:*'
+
+                # Replace the "lttng enable-event" section with selective tracepoints
+                echo "Enabling selective tracepoints..."
+                lttng enable-event --userspace anytime:anytime_compute_entry
+                lttng enable-event --userspace anytime:anytime_compute_exit
+                # lttng enable-event --userspace anytime:anytime_compute_iteration  # Commented: calculate from batch_count * batch_size
+                lttng enable-event --userspace anytime:anytime_server_handle_cancel
+                lttng enable-event --userspace anytime:anytime_base_deactivate
+                lttng enable-event --userspace anytime:anytime_client_goal_sent
+                lttng enable-event --userspace anytime:anytime_client_cancel_sent
+                lttng enable-event --userspace anytime:anytime_client_goal_finished
+
+                # Optional - comment out if you don't need feedback/result timing
+                # lttng enable-event --userspace anytime:anytime_send_feedback_entry
+                # lttng enable-event --userspace anytime:anytime_send_feedback_exit
+                # lttng enable-event --userspace anytime:anytime_calculate_result_entry
+                # lttng enable-event --userspace anytime:anytime_calculate_result_exit
+
                 # Add context information
                 lttng add-context --userspace --type=vpid
                 lttng add-context --userspace --type=vtid
