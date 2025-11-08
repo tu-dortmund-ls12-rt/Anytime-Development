@@ -7,6 +7,11 @@ packages/log
 **/.cache
 plots
 results
+
+# Experiment data (large traces and results)
+experiments/*/traces/
+experiments/*/results/
+experiments/*/plots/
 packages/src/anytime_yolo/weights_32/layer_*.onnx
 packages/src/anytime_yolo/weights_32/exit_*.onnx
 packages/src/anytime_yolo/weights_32/model.json
