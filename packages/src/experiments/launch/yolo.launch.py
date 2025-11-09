@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def launch_setup(context, *args, **kwargs):
-    """Setup function to print executor type and return container and video publisher."""
+    """Setup function to print executor type and return container(s) and video publisher."""
 
     use_multi_threaded = context.launch_configurations.get(
         'use_multi_threaded', 'true')
@@ -26,6 +26,10 @@ def launch_setup(context, *args, **kwargs):
     print(f"Container Name: {container_name}")
     print(f"Executor Type:  {executor_type}")
     print(f"Executable:     {executable_name}")
+    if use_multi_threaded == 'true':
+        print(f"Architecture:   Single container with both server and client")
+    else:
+        print(f"Architecture:   Two separate containers (one per component)")
     print("="*80 + "\n")
 
     # Get the experiments package directory
@@ -49,32 +53,6 @@ def launch_setup(context, *args, **kwargs):
     image_path = context.launch_configurations.get(
         'image_path', default_image_path)
 
-    # Create component container with both client and server
-    container = ComposableNodeContainer(
-        name=container_name,
-        namespace='',
-        package='rclcpp_components',
-        executable=executable_name,
-        composable_node_descriptions=[
-            ComposableNode(
-                package='anytime_yolo',
-                plugin='AnytimeActionServer',
-                name='anytime_server',
-                parameters=[server_config],
-                extra_arguments=[{'use_intra_process_comms': True}]
-            ),
-            ComposableNode(
-                package='anytime_yolo',
-                plugin='AnytimeActionClient',
-                name='anytime_client',
-                parameters=[client_config],
-                extra_arguments=[{'use_intra_process_comms': True}]
-            ),
-        ],
-        output='screen',
-        arguments=['--ros-args', '--log-level', log_level],
-    )
-
     # Video publisher node (separate from component container)
     video_publisher = Node(
         package='video_publisher',
@@ -86,7 +64,77 @@ def launch_setup(context, *args, **kwargs):
         output='screen'
     )
 
-    return [container, video_publisher]
+    nodes_to_launch = []
+
+    if use_multi_threaded == 'true':
+        # Multi-threaded: Single container with both client and server
+        container = ComposableNodeContainer(
+            name=container_name,
+            namespace='',
+            package='rclcpp_components',
+            executable=executable_name,
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='anytime_yolo',
+                    plugin='AnytimeActionServer',
+                    name='anytime_server',
+                    parameters=[server_config],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
+                ComposableNode(
+                    package='anytime_yolo',
+                    plugin='AnytimeActionClient',
+                    name='anytime_client',
+                    parameters=[client_config],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
+            ],
+            output='screen',
+            arguments=['--ros-args', '--log-level', log_level],
+        )
+        nodes_to_launch.append(container)
+    else:
+        # Single-threaded: Two separate containers
+        server_container = ComposableNodeContainer(
+            name=f'{container_name}_server',
+            namespace='',
+            package='rclcpp_components',
+            executable=executable_name,
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='anytime_yolo',
+                    plugin='AnytimeActionServer',
+                    name='anytime_server',
+                    parameters=[server_config],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
+            ],
+            output='screen',
+            arguments=['--ros-args', '--log-level', log_level],
+        )
+
+        client_container = ComposableNodeContainer(
+            name=f'{container_name}_client',
+            namespace='',
+            package='rclcpp_components',
+            executable=executable_name,
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='anytime_yolo',
+                    plugin='AnytimeActionClient',
+                    name='anytime_client',
+                    parameters=[client_config],
+                    extra_arguments=[{'use_intra_process_comms': True}]
+                ),
+            ],
+            output='screen',
+            arguments=['--ros-args', '--log-level', log_level],
+        )
+
+        nodes_to_launch.extend([server_container, client_container])
+
+    nodes_to_launch.append(video_publisher)
+    return nodes_to_launch
 
 
 def generate_launch_description():
