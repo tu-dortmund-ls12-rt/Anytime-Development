@@ -223,6 +223,8 @@ def analyze_runtime_trace(trace_dir):
         'layer_start_times': {},
         'exit_calc_start_times': {},
         'total_layers': 0,
+        'last_layer_end_time': None,  # Track when the last layer finished
+        'final_exit_cost': None,  # Time from last layer to result
     }
 
     goal_counter = 0
@@ -243,6 +245,8 @@ def analyze_runtime_trace(trace_dir):
                 'layer_start_times': {},
                 'exit_calc_start_times': {},
                 'total_layers': 0,
+                'last_layer_end_time': None,
+                'final_exit_cost': None,
             }
 
         elif event.event_name == 'yolo_layer_start':
@@ -260,6 +264,8 @@ def analyze_runtime_trace(trace_dir):
                 current_goal['layer_computation_times'][layer_num] = computation_time
             current_goal['total_layers'] = max(
                 current_goal['total_layers'], layer_num)
+            # Track the timestamp of the last layer end
+            current_goal['last_layer_end_time'] = event.timestamp
 
         elif event.event_name == 'yolo_cuda_callback':
             # In async mode, CUDA callbacks indicate layer completion
@@ -276,6 +282,8 @@ def analyze_runtime_trace(trace_dir):
                     current_goal['layer_computation_times'][processed_layers] = computation_time
                 current_goal['total_layers'] = max(
                     current_goal['total_layers'], processed_layers)
+                # Track the timestamp of the last layer end (for async mode)
+                current_goal['last_layer_end_time'] = event.timestamp
 
         elif event.event_name == 'yolo_exit_calculation_start':
             layer_num = event.fields.get('layer_num', 0)
@@ -292,10 +300,18 @@ def analyze_runtime_trace(trace_dir):
         elif event.event_name == 'yolo_result':
             # Goal completed (Phase 1 style with exit calculations)
             current_goal['goal_end'] = event.timestamp
+            # Calculate final exit cost (time from last layer to result)
+            if current_goal['last_layer_end_time']:
+                current_goal['final_exit_cost'] = (
+                    event.timestamp - current_goal['last_layer_end_time']) / 1e6  # Convert to ms
 
         elif event.event_name == 'anytime_compute_exit':
             # Goal completed (Phase 3 style - batch processing, no intermediate exits)
             current_goal['goal_end'] = event.timestamp
+            # Calculate final exit cost (time from last layer to result)
+            if current_goal['last_layer_end_time']:
+                current_goal['final_exit_cost'] = (
+                    event.timestamp - current_goal['last_layer_end_time']) / 1e6  # Convert to ms
             # Optionally extract total computation time from the event
             # computation_time_ns = event.fields.get('computation_time_ns', 0)
             # iterations_completed = event.fields.get('iterations_completed', 0)
@@ -328,6 +344,7 @@ def aggregate_metrics(all_metrics):
         'layer_computation_times': defaultdict(list),  # layer -> [times]
         'exit_calculation_times': defaultdict(list),  # layer -> [times]
         'total_times_per_layer': defaultdict(list),  # layer -> [comp + exit]
+        'final_exit_costs': [],  # Final exit cost per goal (ms)
     })
 
     for metrics in all_metrics:
@@ -359,6 +376,10 @@ def aggregate_metrics(all_metrics):
                 exit_time = goal['exit_calculation_times'].get(layer_num, 0)
                 total = comp_time + exit_time
                 group['total_times_per_layer'][layer_num].append(total)
+
+            # Aggregate final exit costs
+            if goal['final_exit_cost'] is not None:
+                group['final_exit_costs'].append(goal['final_exit_cost'])
 
     # Calculate statistics for each group
     summary = {}
@@ -404,6 +425,18 @@ def aggregate_metrics(all_metrics):
                     'min': np.min(times),
                     'max': np.max(times),
                 }
+
+        # Final exit cost statistics
+        if group['final_exit_costs']:
+            summary[key]['final_exit_cost_stats'] = {
+                'mean': np.mean(group['final_exit_costs']),
+                'std': np.std(group['final_exit_costs']),
+                'min': np.min(group['final_exit_costs']),
+                'max': np.max(group['final_exit_costs']),
+                'count': len(group['final_exit_costs']),
+            }
+        else:
+            summary[key]['final_exit_cost_stats'] = None
 
     return summary
 
@@ -533,19 +566,22 @@ def plot_layer_computation_times_by_config(summary):
 
 def plot_exit_calculation_times_by_config(summary):
     """
-    Plot exit calculation times for each configuration
+    Plot exit calculation times for each configuration, including final exit cost
     """
     print("\n  Creating exit calculation times plot...")
 
-    # Check if any configuration has exit calculation data
-    has_exit_data = any(data['layer_exit_stats'] for data in summary.values())
+    # Check if any configuration has exit calculation data or final exit cost
+    has_layer_exit_data = any(data['layer_exit_stats']
+                              for data in summary.values())
+    has_final_exit_data = any(data.get('final_exit_cost_stats')
+                              for data in summary.values())
 
-    if not has_exit_data:
-        print("    No exit calculation data (Phase 3 uses batch mode without intermediate exits)")
+    if not has_layer_exit_data and not has_final_exit_data:
+        print("    No exit calculation data available")
         # Create a placeholder plot with informational message
         fig, ax = plt.subplots(figsize=(14, 7))
         ax.text(0.5, 0.5,
-                'Exit Calculation Times\n\nNot applicable for Phase 3\n(Batch mode without intermediate exit calculations)',
+                'Exit Calculation Times\n\nNo exit calculation data available',
                 ha='center', va='center', fontsize=14, transform=ax.transAxes,
                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
         ax.set_xlim(0, 1)
@@ -557,31 +593,117 @@ def plot_exit_calculation_times_by_config(summary):
         print(f"    Saved: {RUNTIME_DIR / 'exit_calculation_by_config.png'}")
         return
 
-    fig, ax = plt.subplots(figsize=(14, 7))
+    # Create figure with two subplots if we have both types of data
+    if has_layer_exit_data and has_final_exit_data:
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+    else:
+        fig, ax1 = plt.subplots(figsize=(14, 7))
+        ax2 = None
 
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
     markers = ['o', 's', '^', 'D', 'v', 'p']
 
-    for idx, (config, data) in enumerate(sorted(summary.items())):
-        if not data['layer_exit_stats']:
-            continue
+    # Plot 1: Layer-wise exit calculations (if available)
+    if has_layer_exit_data:
+        for idx, (config, data) in enumerate(sorted(summary.items())):
+            if not data['layer_exit_stats']:
+                continue
 
-        layers = sorted(data['layer_exit_stats'].keys())
-        means = [data['layer_exit_stats'][l]['mean'] for l in layers]
-        stds = [data['layer_exit_stats'][l]['std'] for l in layers]
+            layers = sorted(data['layer_exit_stats'].keys())
+            means = [data['layer_exit_stats'][l]['mean'] for l in layers]
+            stds = [data['layer_exit_stats'][l]['std'] for l in layers]
 
-        label = config.replace('_', '+').replace('sync', 'Sync').replace(
-            'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
+            label = config.replace('_', '+').replace('sync', 'Sync').replace(
+                'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
 
-        ax.errorbar(layers, means, yerr=stds, marker=markers[idx % len(markers)],
-                    label=label, capsize=3, linewidth=2, markersize=6,
-                    color=colors[idx % len(colors)], alpha=0.8)
+            ax1.errorbar(layers, means, yerr=stds, marker=markers[idx % len(markers)],
+                         label=label, capsize=3, linewidth=2, markersize=6,
+                         color=colors[idx % len(colors)], alpha=0.8)
 
-    ax.set_xlabel('Layer Number', fontsize=12)
-    ax.set_ylabel('Exit Calculation Time (ms)', fontsize=12)
-    ax.set_title('Exit Calculation Time by Configuration', fontsize=14)
-    ax.legend(loc='best', fontsize=10)
-    ax.grid(True, alpha=0.3)
+        ax1.set_xlabel('Layer Number', fontsize=12)
+        ax1.set_ylabel('Exit Calculation Time (ms)', fontsize=12)
+        ax1.set_title('Per-Layer Exit Calculation Time', fontsize=14)
+        ax1.legend(loc='best', fontsize=10)
+        ax1.grid(True, alpha=0.3)
+    else:
+        ax1.text(0.5, 0.5, 'No per-layer exit data\n(Phase 3 batch mode)',
+                 ha='center', va='center', transform=ax1.transAxes, fontsize=12)
+        ax1.set_title('Per-Layer Exit Calculation Time', fontsize=14)
+
+    # Plot 2: Final exit cost comparison (if available)
+    if has_final_exit_data and ax2 is not None:
+        configs_with_final_exit = []
+        means_final = []
+        stds_final = []
+
+        for config in sorted(summary.keys()):
+            data = summary[config]
+            if data.get('final_exit_cost_stats'):
+                configs_with_final_exit.append(config)
+                means_final.append(data['final_exit_cost_stats']['mean'])
+                stds_final.append(data['final_exit_cost_stats']['std'])
+
+        if configs_with_final_exit:
+            labels = [c.replace('_', '+').replace('sync', 'Sync').replace(
+                'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
+                for c in configs_with_final_exit]
+
+            x = np.arange(len(configs_with_final_exit))
+            bar_colors = [colors[i % len(colors)]
+                          for i in range(len(configs_with_final_exit))]
+            bars = ax2.bar(x, means_final, yerr=stds_final,
+                           capsize=5, alpha=0.7, color=bar_colors)
+
+            ax2.set_xlabel('Configuration', fontsize=12)
+            ax2.set_ylabel('Final Exit Cost (ms)', fontsize=12)
+            ax2.set_title('Final Exit Cost (Last Layer → Result)', fontsize=14)
+            ax2.set_xticks(x)
+            ax2.set_xticklabels(labels, rotation=45, ha='right')
+            ax2.grid(True, alpha=0.3, axis='y')
+
+            # Add value labels on bars
+            for i, (bar, mean) in enumerate(zip(bars, means_final)):
+                height = bar.get_height()
+                ax2.text(bar.get_x() + bar.get_width()/2., height,
+                         f'{mean:.2f}ms',
+                         ha='center', va='bottom', fontsize=10)
+    elif has_final_exit_data and ax2 is None:
+        # Single plot showing just final exit cost
+        configs_with_final_exit = []
+        means_final = []
+        stds_final = []
+
+        for config in sorted(summary.keys()):
+            data = summary[config]
+            if data.get('final_exit_cost_stats'):
+                configs_with_final_exit.append(config)
+                means_final.append(data['final_exit_cost_stats']['mean'])
+                stds_final.append(data['final_exit_cost_stats']['std'])
+
+        if configs_with_final_exit:
+            labels = [c.replace('_', '+').replace('sync', 'Sync').replace(
+                'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
+                for c in configs_with_final_exit]
+
+            x = np.arange(len(configs_with_final_exit))
+            bar_colors = [colors[i % len(colors)]
+                          for i in range(len(configs_with_final_exit))]
+            bars = ax1.bar(x, means_final, yerr=stds_final,
+                           capsize=5, alpha=0.7, color=bar_colors)
+
+            ax1.set_xlabel('Configuration', fontsize=12)
+            ax1.set_ylabel('Final Exit Cost (ms)', fontsize=12)
+            ax1.set_title('Final Exit Cost (Last Layer → Result)', fontsize=14)
+            ax1.set_xticks(x)
+            ax1.set_xticklabels(labels, rotation=45, ha='right')
+            ax1.grid(True, alpha=0.3, axis='y')
+
+            # Add value labels on bars
+            for i, (bar, mean) in enumerate(zip(bars, means_final)):
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                         f'{mean:.2f}ms',
+                         ha='center', va='bottom', fontsize=10)
 
     plt.tight_layout()
     plt.savefig(RUNTIME_DIR / 'exit_calculation_by_config.png', dpi=300)
@@ -937,6 +1059,17 @@ def export_runtime_results(summary):
                 f.write(f"  Layer {layer:2d}: {stats['mean']:.3f} ms ")
                 f.write(f"(comp: {comp:.3f} ms, exit: {exit_time:.3f} ms)\n")
 
+            # Add final exit cost information
+            if data.get('final_exit_cost_stats'):
+                f.write("\nFINAL EXIT COST (Last Layer → Result):\n")
+                f.write("-" * 80 + "\n")
+                fec_stats = data['final_exit_cost_stats']
+                f.write(f"  Average: {fec_stats['mean']:.3f} ms\n")
+                f.write(f"  Std Dev: {fec_stats['std']:.3f} ms\n")
+                f.write(f"  Min:     {fec_stats['min']:.3f} ms\n")
+                f.write(f"  Max:     {fec_stats['max']:.3f} ms\n")
+                f.write(f"  Count:   {fec_stats['count']} goals\n")
+
             f.write("\n")
 
         f.write("\n" + "="*80 + "\n")
@@ -956,6 +1089,17 @@ def export_runtime_results(summary):
                 'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
             f.write(
                 f"  {label:20s}: {summary[config]['throughput_imgs_per_sec']:.2f} imgs/sec\n")
+
+        f.write("\nFinal Exit Cost (Last Layer → Result):\n")
+        for config in sorted(summary.keys()):
+            data = summary[config]
+            label = config.replace('_', '+').replace('sync', 'Sync').replace(
+                'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
+            if data.get('final_exit_cost_stats'):
+                f.write(
+                    f"  {label:20s}: {data['final_exit_cost_stats']['mean']:.3f} ms\n")
+            else:
+                f.write(f"  {label:20s}: N/A\n")
 
         f.write("\n" + "="*80 + "\n")
 
