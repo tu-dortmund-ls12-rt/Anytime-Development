@@ -759,6 +759,71 @@ def plot_combined_timing(metrics):
     print(f"    Saved: {QUALITY_DIR / 'combined_timing.png'}")
 
 
+def plot_cumulative_timing(metrics):
+    """
+    Plot cumulative timing showing total runtime up to each layer
+    This shows the total cost if we cancel at each specific layer
+    """
+    print("\n  Creating cumulative timing plot...")
+
+    if not metrics['layer_computation_time_stats'] or not metrics['exit_calculation_time_stats']:
+        print("    No data for cumulative timing plot")
+        return
+
+    layers_comp = sorted(metrics['layer_computation_time_stats'].keys())
+    layers_exit = sorted(metrics['exit_calculation_time_stats'].keys())
+
+    # Use the intersection of layers for comparison
+    common_layers = sorted(set(layers_comp) & set(layers_exit))
+
+    if not common_layers:
+        print("    No common layers for cumulative plot")
+        return
+
+    comp_means = [metrics['layer_computation_time_stats'][l]['mean']
+                  for l in common_layers]
+    exit_means = [metrics['exit_calculation_time_stats'][l]['mean']
+                  for l in common_layers]
+
+    # Calculate cumulative sums
+    cumulative_comp = np.cumsum(comp_means)
+    cumulative_exit = np.cumsum(exit_means)
+    cumulative_total = cumulative_comp + cumulative_exit
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
+
+    # Plot 1: Separate cumulative times for computation and exit calculation
+    ax1.plot(common_layers, cumulative_comp, marker='o',
+             linewidth=2, markersize=6, label='Cumulative Layer Computation', color='blue')
+    ax1.plot(common_layers, cumulative_exit, marker='s',
+             linewidth=2, markersize=6, label='Cumulative Exit Calculation', color='green')
+    ax1.plot(common_layers, cumulative_total, marker='^',
+             linewidth=2, markersize=6, label='Total Cumulative Time', color='red', linestyle='--')
+    ax1.set_xlabel('Layer Number')
+    ax1.set_ylabel('Cumulative Time (ms)')
+    ax1.set_title('Cumulative Processing Time Up To Each Layer')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+
+    # Plot 2: Stacked area showing cumulative contribution
+    ax2.fill_between(common_layers, 0, cumulative_comp,
+                     alpha=0.7, label='Layer Computation', color='blue')
+    ax2.fill_between(common_layers, cumulative_comp, cumulative_total,
+                     alpha=0.7, label='Exit Calculation', color='green')
+    ax2.plot(common_layers, cumulative_total, marker='o',
+             linewidth=2, markersize=6, color='red', label='Total Runtime')
+    ax2.set_xlabel('Layer Number')
+    ax2.set_ylabel('Cumulative Time (ms)')
+    ax2.set_title('Total Runtime if Cancelled at Each Layer (Stacked Area)')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(QUALITY_DIR / 'cumulative_timing.png', dpi=300)
+    plt.close()
+    print(f"    Saved: {QUALITY_DIR / 'cumulative_timing.png'}")
+
+
 def export_quality_results(metrics, mean_thresholds, threshold_stats):
     """
     Export quality analysis results to JSON and text
@@ -982,6 +1047,7 @@ def main():
     plot_layer_computation_times(metrics)
     plot_exit_calculation_times(metrics)
     plot_combined_timing(metrics)
+    plot_cumulative_timing(metrics)
 
     # Export results
     export_quality_results(metrics, mean_thresholds, threshold_stats)

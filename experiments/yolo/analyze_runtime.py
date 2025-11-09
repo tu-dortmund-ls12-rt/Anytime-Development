@@ -537,6 +537,26 @@ def plot_exit_calculation_times_by_config(summary):
     """
     print("\n  Creating exit calculation times plot...")
 
+    # Check if any configuration has exit calculation data
+    has_exit_data = any(data['layer_exit_stats'] for data in summary.values())
+
+    if not has_exit_data:
+        print("    No exit calculation data (Phase 3 uses batch mode without intermediate exits)")
+        # Create a placeholder plot with informational message
+        fig, ax = plt.subplots(figsize=(14, 7))
+        ax.text(0.5, 0.5,
+                'Exit Calculation Times\n\nNot applicable for Phase 3\n(Batch mode without intermediate exit calculations)',
+                ha='center', va='center', fontsize=14, transform=ax.transAxes,
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
+        plt.tight_layout()
+        plt.savefig(RUNTIME_DIR / 'exit_calculation_by_config.png', dpi=300)
+        plt.close()
+        print(f"    Saved: {RUNTIME_DIR / 'exit_calculation_by_config.png'}")
+        return
+
     fig, ax = plt.subplots(figsize=(14, 7))
 
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
@@ -598,27 +618,49 @@ def plot_stacked_layer_times_by_config(summary):
         ax = axes[idx]
         data = summary[config]
 
-        if not data['layer_comp_stats'] or not data['layer_exit_stats']:
+        if not data['layer_comp_stats']:
             ax.text(0.5, 0.5, 'No data', ha='center', va='center',
                     transform=ax.transAxes)
             continue
 
-        # Get common layers
-        comp_layers = set(data['layer_comp_stats'].keys())
-        exit_layers = set(data['layer_exit_stats'].keys())
-        layers = sorted(comp_layers & exit_layers)
+        # Get layers with computation data
+        layers = sorted(data['layer_comp_stats'].keys())
 
         if not layers:
+            ax.text(0.5, 0.5, 'No data', ha='center', va='center',
+                    transform=ax.transAxes)
             continue
 
         comp_means = [data['layer_comp_stats'][l]['mean'] for l in layers]
-        exit_means = [data['layer_exit_stats'][l]['mean'] for l in layers]
 
-        # Create stacked bar chart
-        ax.bar(layers, comp_means, label='Layer Computation',
-               alpha=0.8, color='#1f77b4')
-        ax.bar(layers, exit_means, bottom=comp_means,
-               label='Exit Calculation', alpha=0.8, color='#ff7f0e')
+        # Check if we have exit calculation data
+        has_exit_data = bool(data['layer_exit_stats'])
+
+        if has_exit_data:
+            # Get exit times for layers that have both computation and exit data
+            exit_means = []
+            filtered_layers = []
+            filtered_comp_means = []
+            for i, layer in enumerate(layers):
+                if layer in data['layer_exit_stats']:
+                    filtered_layers.append(layer)
+                    filtered_comp_means.append(comp_means[i])
+                    exit_means.append(data['layer_exit_stats'][layer]['mean'])
+
+            if filtered_layers:
+                # Create stacked bar chart with both computation and exit
+                ax.bar(filtered_layers, filtered_comp_means, label='Layer Computation',
+                       alpha=0.8, color='#1f77b4')
+                ax.bar(filtered_layers, exit_means, bottom=filtered_comp_means,
+                       label='Exit Calculation', alpha=0.8, color='#ff7f0e')
+            else:
+                # Just show computation times
+                ax.bar(layers, comp_means, label='Layer Computation',
+                       alpha=0.8, color='#1f77b4')
+        else:
+            # No exit data - just show computation times
+            ax.bar(layers, comp_means, label='Layer Computation',
+                   alpha=0.8, color='#1f77b4')
 
         label = config.replace('_', '+').replace('sync', 'Sync').replace(
             'async', 'Async').replace('single', 'Single').replace('multi', 'Multi')
