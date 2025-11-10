@@ -174,7 +174,7 @@ void AnytimeActionClient::process_feedback(
                    res.hypothesis.class_id == target_class_id_;
           });
         if (found != detection.results.end() && !is_cancelling_) {
-          RCLCPP_INFO(
+          RCLCPP_DEBUG(
             this->get_logger(),
             "Canceling goal due to high score (%.2f) for class %s after %d layers",
             found->hypothesis.score, target_class_id_.c_str(), feedback->processed_layers);
