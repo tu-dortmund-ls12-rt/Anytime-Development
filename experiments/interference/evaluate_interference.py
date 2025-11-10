@@ -30,6 +30,22 @@ PLOTS_DIR = RESULTS_DIR / "plots"
 # Expected timer period (ms)
 EXPECTED_TIMER_PERIOD_MS = 100.0
 
+# Plot configuration
+PLOT_WIDTH = 12
+PLOT_HEIGHT = 8
+PLOT_HEIGHT_SMALL = 6
+PLOT_DPI = 300
+FONT_SIZE_TITLE = 20
+FONT_SIZE_LABEL = 20
+FONT_SIZE_LEGEND = 20
+FONT_SIZE_SUBTITLE = 20
+FONT_SIZE_AXIS = 20
+FONT_SIZE_TICK_LABELS = 18  # Size of the numbers on the axes
+LEGEND_SIZE = 20
+MARKER_SIZE = 12
+CAPSIZE = 5
+LINE_WIDTH = 2
+
 # Create output directories
 RESULTS_DIR.mkdir(exist_ok=True)
 PLOTS_DIR.mkdir(exist_ok=True)
@@ -335,74 +351,95 @@ def generate_plots(aggregated_metrics):
 
     # Plot 1: Timer Period vs Batch Size
     print("  - Timer period vs batch size")
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
-    for mode in ['reactive', 'proactive']:
-        for threading in ['single', 'multi']:
+    # Get all unique batch sizes
+    all_batch_sizes = sorted(df['batch_size'].unique())
+    x = np.arange(len(all_batch_sizes))
+    width = 0.2
+
+    for i, mode in enumerate(['reactive', 'proactive']):
+        for j, threading in enumerate(['single', 'multi']):
+            offset = (i * 2 + j - 1.5) * width
             mask = (df['mode'] == mode) & (df['threading'] == threading)
             data = df[mask].sort_values('batch_size')
 
             if len(data) > 0:
                 label = f"{mode.capitalize()} - {threading}-threaded"
-                marker = 'o' if mode == 'reactive' else 's'
-                linestyle = '-' if threading == 'single' else '--'
+                # Align with all_batch_sizes
+                y_values = [data[data['batch_size'] == bs]['avg_timer_period'].values[0]
+                            if bs in data['batch_size'].values else 0
+                            for bs in all_batch_sizes]
+                y_errors = [data[data['batch_size'] == bs]['std_timer_period'].values[0]
+                            if bs in data['batch_size'].values else 0
+                            for bs in all_batch_sizes]
 
-                ax.errorbar(data['batch_size'], data['avg_timer_period'],
-                            yerr=data['std_timer_period'],
-                            label=label, marker=marker, linestyle=linestyle,
-                            capsize=5, markersize=8)
+                ax.bar(x + offset, y_values, width, yerr=y_errors,
+                       label=label, capsize=CAPSIZE)
 
     # Add expected period line
     ax.axhline(y=EXPECTED_TIMER_PERIOD_MS, color='red',
-               linestyle=':', linewidth=2, label=f'Expected ({EXPECTED_TIMER_PERIOD_MS} ms)')
+               linestyle=':', linewidth=LINE_WIDTH, label=f'Expected ({EXPECTED_TIMER_PERIOD_MS} ms)')
 
-    ax.set_xlabel('Batch Size', fontsize=12)
-    ax.set_ylabel('Average Timer Period (ms)', fontsize=12)
-    ax.set_title('Timer Period vs Batch Size\n(Deviation indicates interference)',
-                 fontsize=14, fontweight='bold')
-    ax.set_xscale('log')
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
+    ax.set_xlabel('Batch Size', fontsize=FONT_SIZE_LABEL)
+    ax.set_ylabel('Average Timer Period (ms)', fontsize=FONT_SIZE_LABEL)
+    # ax.set_title('Timer Period vs Batch Size\n(Deviation indicates interference)',
+    #              fontsize=FONT_SIZE_TITLE, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
+    ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.legend(fontsize=LEGEND_SIZE)
+    ax.grid(True, axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'timer_period_vs_batch_size.png', dpi=300)
+    plt.savefig(PLOTS_DIR / 'timer_period_vs_batch_size.pdf', dpi=PLOT_DPI)
     plt.close()
 
     # Plot 2: Absolute Jitter vs Batch Size
     print("  - Jitter vs batch size")
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
-    for mode in ['reactive', 'proactive']:
-        for threading in ['single', 'multi']:
+    # Get all unique batch sizes
+    all_batch_sizes = sorted(df['batch_size'].unique())
+    x = np.arange(len(all_batch_sizes))
+    width = 0.2
+
+    for i, mode in enumerate(['reactive', 'proactive']):
+        for j, threading in enumerate(['single', 'multi']):
+            offset = (i * 2 + j - 1.5) * width
             mask = (df['mode'] == mode) & (df['threading'] == threading)
             data = df[mask].sort_values('batch_size')
 
             if len(data) > 0:
                 label = f"{mode.capitalize()} - {threading}-threaded"
-                marker = 'o' if mode == 'reactive' else 's'
-                linestyle = '-' if threading == 'single' else '--'
+                # Align with all_batch_sizes
+                y_values = [data[data['batch_size'] == bs]['max_abs_jitter'].values[0]
+                            if bs in data['batch_size'].values else 0
+                            for bs in all_batch_sizes]
+                y_errors = [data[data['batch_size'] == bs]['std_jitter'].values[0]
+                            if bs in data['batch_size'].values else 0
+                            for bs in all_batch_sizes]
 
-                ax.errorbar(data['batch_size'], data['max_abs_jitter'],
-                            yerr=data['std_jitter'],
-                            label=label, marker=marker, linestyle=linestyle,
-                            capsize=5, markersize=8)
+                ax.bar(x + offset, y_values, width, yerr=y_errors,
+                       label=label, capsize=CAPSIZE)
 
-    ax.set_xlabel('Batch Size', fontsize=12)
-    ax.set_ylabel('Maximum Absolute Jitter (ms)', fontsize=12)
-    ax.set_title('Timer Jitter vs Batch Size\n(Higher jitter = more interference)',
-                 fontsize=14, fontweight='bold')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
+    ax.set_xlabel('Batch Size', fontsize=FONT_SIZE_LABEL)
+    ax.set_ylabel('Maximum Absolute Jitter (ms)', fontsize=FONT_SIZE_LABEL)
+    # ax.set_title('Timer Jitter vs Batch Size\n(Higher jitter = more interference)',
+    #              fontsize=FONT_SIZE_TITLE, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
+    ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.legend(fontsize=LEGEND_SIZE)
+    ax.grid(True, axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'jitter_vs_batch_size.png', dpi=300)
+    plt.savefig(PLOTS_DIR / 'jitter_vs_batch_size.pdf', dpi=PLOT_DPI)
     plt.close()
 
     # Plot 3: Missed Periods Percentage
     print("  - Missed periods analysis")
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT_SMALL))
 
     # Get all unique batch sizes
     all_batch_sizes = sorted(df['batch_size'].unique())
@@ -424,49 +461,60 @@ def generate_plots(aggregated_metrics):
 
                 ax.bar(x + offset, y_values, width, label=label)
 
-    ax.set_xlabel('Batch Size', fontsize=12)
-    ax.set_ylabel('Missed Periods (%)', fontsize=12)
-    ax.set_title('Percentage of Timer Periods Missed\n(Period > 150% of expected)',
-                 fontsize=14, fontweight='bold')
+    ax.set_xlabel('Batch Size', fontsize=FONT_SIZE_LABEL)
+    ax.set_ylabel('Missed Periods (%)', fontsize=FONT_SIZE_LABEL)
+    # ax.set_title('Percentage of Timer Periods Missed\n(Period > 150% of expected)',
+    #              fontsize=FONT_SIZE_TITLE, fontweight='bold')
     ax.set_xticks(x)
-    ax.set_xticklabels(all_batch_sizes)
-    ax.legend(fontsize=10)
+    ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
+    ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.legend(fontsize=LEGEND_SIZE)
     ax.grid(True, axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'missed_periods_percentage.png', dpi=300)
+    plt.savefig(PLOTS_DIR / 'missed_periods_percentage.pdf', dpi=PLOT_DPI)
     plt.close()
 
     # Plot 4: Compute Time vs Batch Size
     print("  - Compute time vs batch size")
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
-    for mode in ['reactive', 'proactive']:
-        for threading in ['single', 'multi']:
+    # Get all unique batch sizes
+    all_batch_sizes = sorted(df['batch_size'].unique())
+    x = np.arange(len(all_batch_sizes))
+    width = 0.2
+
+    for i, mode in enumerate(['reactive', 'proactive']):
+        for j, threading in enumerate(['single', 'multi']):
+            offset = (i * 2 + j - 1.5) * width
             mask = (df['mode'] == mode) & (df['threading'] == threading)
             data = df[mask].sort_values('batch_size')
 
             if len(data) > 0:
                 label = f"{mode.capitalize()} - {threading}-threaded"
-                marker = 'o' if mode == 'reactive' else 's'
-                linestyle = '-' if threading == 'single' else '--'
+                # Align with all_batch_sizes
+                y_values = [data[data['batch_size'] == bs]['avg_compute_time'].values[0]
+                            if bs in data['batch_size'].values else 0
+                            for bs in all_batch_sizes]
+                y_errors = [data[data['batch_size'] == bs]['std_compute_time'].values[0]
+                            if bs in data['batch_size'].values else 0
+                            for bs in all_batch_sizes]
 
-                ax.errorbar(data['batch_size'], data['avg_compute_time'],
-                            yerr=data['std_compute_time'],
-                            label=label, marker=marker, linestyle=linestyle,
-                            capsize=5, markersize=8)
+                ax.bar(x + offset, y_values, width, yerr=y_errors,
+                       label=label, capsize=CAPSIZE)
 
-    ax.set_xlabel('Batch Size', fontsize=12)
-    ax.set_ylabel('Average Compute Batch Time (ms)', fontsize=12)
-    ax.set_title('Monte Carlo Compute Batch Time vs Batch Size',
-                 fontsize=14, fontweight='bold')
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.legend(fontsize=10)
-    ax.grid(True, alpha=0.3)
+    ax.set_xlabel('Batch Size', fontsize=FONT_SIZE_LABEL)
+    ax.set_ylabel('Average Compute Batch Time (ms)', fontsize=FONT_SIZE_LABEL)
+    # ax.set_title('Monte Carlo Compute Batch Time vs Batch Size',
+    #              fontsize=FONT_SIZE_TITLE, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
+    ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.legend(fontsize=LEGEND_SIZE)
+    ax.grid(True, axis='y', alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'compute_time_vs_batch_size.png', dpi=300)
+    plt.savefig(PLOTS_DIR / 'compute_time_vs_batch_size.pdf', dpi=PLOT_DPI)
     plt.close()
 
     # Plot 5: Timer Period Distribution (Box Plot)
@@ -503,19 +551,20 @@ def generate_plots(aggregated_metrics):
 
                 # Add expected period line
                 ax.axhline(y=EXPECTED_TIMER_PERIOD_MS, color='red',
-                           linestyle=':', linewidth=2, label='Expected')
+                           linestyle=':', linewidth=LINE_WIDTH, label='Expected')
 
-            ax.set_xlabel('Batch Size', fontsize=10)
-            ax.set_ylabel('Timer Period (ms)', fontsize=10)
-            ax.set_title(f'{mode.capitalize()} - {threading}-threaded',
-                         fontsize=11, fontweight='bold')
+            ax.set_xlabel('Batch Size', fontsize=FONT_SIZE_AXIS)
+            ax.set_ylabel('Timer Period (ms)', fontsize=FONT_SIZE_AXIS)
+            # ax.set_title(f'{mode.capitalize()} - {threading}-threaded',
+            #              fontsize=FONT_SIZE_SUBTITLE, fontweight='bold')
+            ax.tick_params(axis='both', labelsize=FONT_SIZE_TICK_LABELS)
             ax.grid(True, alpha=0.3)
             ax.legend()
 
-    plt.suptitle('Timer Period Distribution by Configuration',
-                 fontsize=14, fontweight='bold')
+    # plt.suptitle('Timer Period Distribution by Configuration',
+    #              fontsize=FONT_SIZE_TITLE, fontweight='bold')
     plt.tight_layout()
-    plt.savefig(PLOTS_DIR / 'timer_period_distribution.png', dpi=300)
+    plt.savefig(PLOTS_DIR / 'timer_period_distribution.pdf', dpi=PLOT_DPI)
     plt.close()
 
     print(f"\nAll plots saved to: {PLOTS_DIR}")

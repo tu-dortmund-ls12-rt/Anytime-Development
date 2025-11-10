@@ -117,7 +117,7 @@ for batch_size in "${BATCH_SIZES[@]}"; do
                 fi
                 
                 # Launch the experiment in background
-                timeout ${RUN_DURATION} ros2 launch experiments monte_carlo.launch.py \
+                ros2 launch experiments monte_carlo.launch.py \
                     server_config:="${server_config}" \
                     client_config:="${client_config}" \
                     use_multi_threaded:=${use_multi_threaded} \
@@ -126,10 +126,10 @@ for batch_size in "${BATCH_SIZES[@]}"; do
                 
                 LAUNCH_PID=$!
                 
-                # Wait for the process to complete or timeout
-                wait ${LAUNCH_PID} 2>/dev/null || true
+                # Wait for experiment duration
+                sleep ${RUN_DURATION}
                 
-                # Kill any remaining processes
+                # Kill the launch process
                 kill ${LAUNCH_PID} 2>/dev/null || true
                 sleep 1
                 kill -9 ${LAUNCH_PID} 2>/dev/null || true

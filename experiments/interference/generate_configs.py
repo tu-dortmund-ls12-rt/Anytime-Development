@@ -6,7 +6,7 @@ Generate all Interference experiment configuration files
 import os
 
 # Configuration parameters
-batch_sizes = [1, 64, 4096, 16384, 65536, 262144, 524288, 1048576]
+batch_sizes = [1024, 4096, 16384, 65536, 262144]
 modes = ["reactive", "proactive"]
 threading = ["single", "multi"]
 
@@ -37,10 +37,10 @@ server_template = """anytime_server:
 client_template = """anytime_client:
   ros__parameters:
     # Goal timer configuration
-    goal_timer_period_ms: 1000  # Period in milliseconds for the goal request timer
+    goal_timer_period_ms: 500  # Period in milliseconds for the goal request timer
     
     # Cancel timeout configuration
-    cancel_timeout_period_ms: 250  # Period in milliseconds for the cancel timeout timer
+    cancel_timeout_period_ms: 200  # Period in milliseconds for the cancel timeout timer
     
     # Logging configuration
     log_level: "info"  # Options: "debug", "info", "warn", "error", "fatal"

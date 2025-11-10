@@ -13,13 +13,13 @@ RESULTS_DIR="${EXPERIMENT_DIR}/results"
 PACKAGES_DIR="${WORKSPACE_DIR}/packages"
 
 # Experiment parameters
-BATCH_SIZES=(65536 524288 1048576)
+BATCH_SIZES=(1024 4096 16384 65536 262144)
 MODES=("reactive" "proactive")
 THREADING=("single" "multi")
 NUM_RUNS=1  # Number of trials per configuration
 
 # Duration for each experiment run (in seconds)
-RUN_DURATION=30
+RUN_DURATION=10
 
 # Interference timer parameters (fixed)
 TIMER_PERIOD_MS=100
@@ -116,28 +116,26 @@ for batch_size in "${BATCH_SIZES[@]}"; do
                 fi
                 
                 # Launch the experiment in background
-                timeout ${RUN_DURATION} ros2 launch experiments interference.launch.py \
+                ros2 launch experiments interference.launch.py \
                     server_config:="${server_config}" \
                     client_config:="${client_config}" \
                     use_multi_threaded:=${use_multi_threaded} \
                     timer_period_ms:=${TIMER_PERIOD_MS} \
                     execution_time_ms:=${EXECUTION_TIME_MS} \
-                    log_level:=info \
-                    > /dev/null 2>&1 &
+                    log_level:=info  &
                 
                 LAUNCH_PID=$!
                 
-                # Wait for the process to complete or timeout
-                wait ${LAUNCH_PID} 2>/dev/null || true
+                # Wait for experiment duration
+                sleep ${RUN_DURATION}
                 
-                # Kill any remaining processes
+                # Kill the launch process
                 kill ${LAUNCH_PID} 2>/dev/null || true
                 sleep 1
                 kill -9 ${LAUNCH_PID} 2>/dev/null || true
                 
                 # Kill any remaining interference processes
                 pkill -9 -f 'anytime_monte_carlo' 2>/dev/null || true
-                pkill -9 -f 'interference' 2>/dev/null || true
                 pkill -9 -f 'ros2' 2>/dev/null || true
                 
                 # Give it a moment to flush
