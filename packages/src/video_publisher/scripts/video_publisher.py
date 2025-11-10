@@ -25,13 +25,13 @@ class VideoPublisher(Node):
 
         # List all filenames in the image_path directory
         filenames = os.listdir(self.image_path)
-        self.get_logger().info(
+        self.get_logger().debug(
             f'Files in directory "{self.image_path}": {filenames}')
 
         # Filter for files in the format image_*.jpg
         self.image_files = [f for f in filenames if f.startswith(
             'image_') and f.endswith('.jpg')]
-        self.get_logger().info(
+        self.get_logger().debug(
             f'Filtered image files: {self.image_files}')
 
         if not self.image_files:
