@@ -454,9 +454,10 @@ def plot_cancellation_delay_comparison(summary):
     # Sort configs by block size, then mode, sync, threading
     def sort_key(config):
         parts = config.split('_')
-        block_size = int(parts[0][2:])  # Extract number from 'bs1', 'bs8', etc.
+        # Extract number from 'bs1', 'bs8', etc.
+        block_size = int(parts[0][2:])
         return (block_size, parts[1], parts[2], parts[3])
-    
+
     configs = sorted(summary.keys(), key=sort_key)
     if not configs:
         print("    No data to plot")
@@ -517,9 +518,10 @@ def plot_total_runtime_comparison(summary):
     # Sort configs by block size, then mode, sync, threading
     def sort_key(config):
         parts = config.split('_')
-        block_size = int(parts[0][2:])  # Extract number from 'bs1', 'bs8', etc.
+        # Extract number from 'bs1', 'bs8', etc.
+        block_size = int(parts[0][2:])
         return (block_size, parts[1], parts[2], parts[3])
-    
+
     configs = sorted(summary.keys(), key=sort_key)
     if not configs:
         print("    No data to plot")
@@ -573,9 +575,10 @@ def plot_layers_processed_comparison(summary):
     # Sort configs by block size, then mode, sync, threading
     def sort_key(config):
         parts = config.split('_')
-        block_size = int(parts[0][2:])  # Extract number from 'bs1', 'bs8', etc.
+        # Extract number from 'bs1', 'bs8', etc.
+        block_size = int(parts[0][2:])
         return (block_size, parts[1], parts[2], parts[3])
-    
+
     configs = sorted(summary.keys(), key=sort_key)
     if not configs:
         print("    No data to plot")
@@ -698,9 +701,10 @@ def plot_distribution_boxplots(summary):
     # Sort configs by block size, then mode, sync, threading
     def sort_key(config):
         parts = config.split('_')
-        block_size = int(parts[0][2:])  # Extract number from 'bs1', 'bs8', etc.
+        # Extract number from 'bs1', 'bs8', etc.
+        block_size = int(parts[0][2:])
         return (block_size, parts[1], parts[2], parts[3])
-    
+
     configs = sorted(summary.keys(), key=sort_key)
     labels = [format_config_label(c) for c in configs]
 
