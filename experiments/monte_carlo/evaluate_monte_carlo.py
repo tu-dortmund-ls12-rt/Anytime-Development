@@ -36,6 +36,7 @@ FONT_SIZE_TITLE = 30
 FONT_SIZE_LABEL = 30
 FONT_SIZE_LEGEND = 30
 FONT_SIZE_TICK_LABELS = 30
+FONT_SIZE_OFFSET = 30  # Size for scientific notation offset (e.g., "1e6")
 LEGEND_SIZE = 30
 MARKER_SIZE = 12
 CAPSIZE = 5
@@ -446,6 +447,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -494,6 +496,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -541,6 +544,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -593,6 +597,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -643,6 +648,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -693,6 +699,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -743,6 +750,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -751,8 +759,8 @@ def generate_plots(aggregated_metrics):
                 dpi=PLOT_DPI, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-    # Plot 8: Total Iterations (batch_size * num_batches)
-    print("  - Total iterations completed")
+    # Plot 8: Total Segments (batch_size * num_batches)
+    print("  - Total Segments completed")
     fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
     # Get all unique batch sizes present in the data
@@ -783,11 +791,12 @@ def generate_plots(aggregated_metrics):
                        label=f'{mode}-{threading}')
 
     ax.set_xlabel('Batch Size', fontsize=FONT_SIZE_LABEL)
-    ax.set_ylabel('Total Iterations Completed', fontsize=FONT_SIZE_LABEL)
-    # ax.set_title('Batch Size vs Total Iterations Completed', fontsize=FONT_SIZE_TITLE)
+    ax.set_ylabel('Total Segments Completed', fontsize=FONT_SIZE_LABEL)
+    # ax.set_title('Batch Size vs Total Segments Completed', fontsize=FONT_SIZE_TITLE)
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
@@ -840,6 +849,7 @@ def generate_plots(aggregated_metrics):
     ax.set_xticks(x)
     ax.set_xticklabels(all_batch_sizes, fontsize=FONT_SIZE_TICK_LABELS)
     ax.tick_params(axis='y', labelsize=FONT_SIZE_TICK_LABELS)
+    ax.yaxis.get_offset_text().set_fontsize(FONT_SIZE_OFFSET)
     # ax.legend(fontsize=LEGEND_SIZE)  # Legend removed
     ax.grid(True, axis='y')
 
