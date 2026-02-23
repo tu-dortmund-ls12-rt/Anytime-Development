@@ -6,8 +6,9 @@
 
 set -e
 
-WORKSPACE_DIR="/home/vscode/workspace"
-EXPERIMENT_DIR="${WORKSPACE_DIR}/experiments/yolo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="${WORKSPACE_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+EXPERIMENT_DIR="${SCRIPT_DIR}"
 TRACE_DIR="${EXPERIMENT_DIR}/traces/verify_test"
 
 # Colors
@@ -59,7 +60,7 @@ sleep 3
 # Launch video publisher
 echo -e "${BLUE}Launching video publisher...${NC}"
 ros2 launch experiments video_publisher_only.launch.py \
-    image_path:=/home/vscode/workspace/packages/src/video_publisher/images &
+    image_path:=${WORKSPACE_DIR}/packages/src/video_publisher/images &
 VIDEO_PUB_PID=$!
 
 # Wait for processing to complete (video publisher will exit when done)

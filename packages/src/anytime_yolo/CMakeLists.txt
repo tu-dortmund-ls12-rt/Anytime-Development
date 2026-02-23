@@ -20,7 +20,10 @@ else()
   set(ARCHITECTURE "x86_64")
 endif()
 
-list(APPEND CMAKE_PREFIX_PATH /home/vscode/libraries/libtorch)
+# libtorch path (if available)
+if(DEFINED ENV{HOME})
+  list(APPEND CMAKE_PREFIX_PATH $ENV{HOME}/libraries/libtorch)
+endif()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)

@@ -9,8 +9,9 @@
 set -e  # Exit on error
 
 # Configuration
-WORKSPACE_DIR="/home/vscode/workspace"
-EXPERIMENT_DIR="${WORKSPACE_DIR}/experiments/yolo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="${WORKSPACE_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+EXPERIMENT_DIR="${SCRIPT_DIR}"
 TRACE_DIR="${EXPERIMENT_DIR}/traces/test_single"
 
 # Colors for output
@@ -64,7 +65,7 @@ echo -e "${YELLOW}Processing will run for 30 seconds or until video publisher co
 echo -e "${YELLOW}Press Ctrl+C to stop early if needed${NC}"
 
 ros2 launch experiments video_publisher_only.launch.py \
-    image_path:=/home/vscode/workspace/packages/src/video_publisher/images &
+    image_path:=${WORKSPACE_DIR}/packages/src/video_publisher/images &
 VIDEO_PUB_PID=$!
 
 # Wait for processing to complete or timeout after 30 seconds

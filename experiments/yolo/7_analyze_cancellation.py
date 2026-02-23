@@ -30,7 +30,8 @@ import json
 from datetime import datetime
 
 # Configuration
-EXPERIMENT_DIR = Path("/home/vscode/workspace/experiments/yolo")
+SCRIPT_DIR = Path(__file__).resolve().parent
+EXPERIMENT_DIR = SCRIPT_DIR
 TRACE_DIR = EXPERIMENT_DIR / "traces"
 RESULTS_DIR = EXPERIMENT_DIR / "results"
 PHASE4_DIR = RESULTS_DIR / "phase4_analysis"

@@ -15,7 +15,8 @@ TIMER_PERIOD_MS = 100  # 100ms = 10Hz timer frequency
 EXECUTION_TIME_MS = 10  # 10ms busy-wait per timer execution
 
 # Base directory
-config_dir = "/home/vscode/workspace/experiments/interference/configs"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+config_dir = os.path.join(SCRIPT_DIR, "configs")
 
 # Template for server config
 server_template = """anytime_server:

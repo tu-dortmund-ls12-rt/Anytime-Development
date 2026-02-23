@@ -11,8 +11,9 @@
 set -e  # Exit on error
 
 # Configuration
-WORKSPACE_DIR="/home/vscode/workspace"
-EXPERIMENT_DIR="${WORKSPACE_DIR}/experiments/yolo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="${WORKSPACE_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+EXPERIMENT_DIR="${SCRIPT_DIR}"
 TRACE_BASE_DIR="${EXPERIMENT_DIR}/traces"
 NUM_TRIALS=1
 
@@ -159,7 +160,7 @@ for block_size in "${BLOCK_SIZES[@]}"; do
                     # Launch video publisher
                     echo -e "${BLUE}Launching video publisher...${NC}"
                     ros2 launch experiments video_publisher_only.launch.py \
-                        image_path:=/home/vscode/workspace/packages/src/video_publisher/images &
+                        image_path:=${WORKSPACE_DIR}/packages/src/video_publisher/images &
                     VIDEO_PUB_PID=$!
                     
                     # Wait for processing to complete (it will shutdown when done)

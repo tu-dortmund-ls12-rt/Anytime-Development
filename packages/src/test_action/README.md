@@ -11,7 +11,7 @@ This is a standalone test package for testing ROS2 actions with multi-threaded e
 ## Building
 
 ```bash
-cd /home/vscode/workspace/packages
+cd packages
 colcon build --packages-select test_action
 source install/setup.bash
 ```
@@ -22,13 +22,13 @@ source install/setup.bash
 
 Terminal 1 - Start the client:
 ```bash
-source /home/vscode/workspace/packages/install/setup.bash
+source packages/install/setup.bash
 ros2 launch test_action action_client.launch.py
 ```
 
 Terminal 2 - Start the server (after client is running):
 ```bash
-source /home/vscode/workspace/packages/install/setup.bash
+source packages/install/setup.bash
 ros2 launch test_action action_server.launch.py
 ```
 
@@ -38,13 +38,13 @@ This tests whether the action client can handle the server not being available i
 
 Terminal 1 - Start the server:
 ```bash
-source /home/vscode/workspace/packages/install/setup.bash
+source packages/install/setup.bash
 ros2 launch test_action action_server.launch.py
 ```
 
 Terminal 2 - Start the client:
 ```bash
-source /home/vscode/workspace/packages/install/setup.bash
+source packages/install/setup.bash
 ros2 launch test_action action_client.launch.py
 ```
 

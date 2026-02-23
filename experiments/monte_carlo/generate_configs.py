@@ -11,7 +11,8 @@ modes = ["reactive", "proactive"]
 threading = ["single", "multi"]
 
 # Base directory
-config_dir = "/home/vscode/workspace/experiments/monte_carlo/configs"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+config_dir = os.path.join(SCRIPT_DIR, "configs")
 
 # Template for server config
 server_template = """anytime_server:

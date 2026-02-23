@@ -21,8 +21,10 @@ Output: configs/phase4_*.yaml
 from pathlib import Path
 import yaml
 
-EXPERIMENT_DIR = Path("/home/vscode/workspace/experiments/yolo")
+SCRIPT_DIR = Path(__file__).resolve().parent
+EXPERIMENT_DIR = SCRIPT_DIR
 CONFIG_DIR = EXPERIMENT_DIR / "configs"
+WORKSPACE_DIR = SCRIPT_DIR.parent.parent
 
 # Ensure config directory exists
 CONFIG_DIR.mkdir(exist_ok=True)
@@ -48,7 +50,7 @@ CLIENT_CONFIG = {
 }
 
 # Weights path
-WEIGHTS_PATH = "/home/vscode/workspace/packages/src/anytime_yolo/weights_32"
+WEIGHTS_PATH = str(WORKSPACE_DIR / "packages" / "src" / "anytime_yolo" / "weights_32")
 
 
 def create_server_config(block_size, mode, sync_mode, threading_mode):

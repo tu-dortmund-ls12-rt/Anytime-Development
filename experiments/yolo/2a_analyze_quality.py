@@ -29,7 +29,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # Configuration
-EXPERIMENT_DIR = Path("/home/vscode/workspace/experiments/yolo")
+SCRIPT_DIR = Path(__file__).resolve().parent
+EXPERIMENT_DIR = SCRIPT_DIR
 TRACE_DIR = EXPERIMENT_DIR / "traces"
 RESULTS_DIR = EXPERIMENT_DIR / "results"
 PLOTS_DIR = RESULTS_DIR / "plots"

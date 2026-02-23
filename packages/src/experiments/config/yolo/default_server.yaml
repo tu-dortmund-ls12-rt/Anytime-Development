@@ -13,7 +13,7 @@ anytime_server:
     is_sync_async: "sync"  # Options: "sync", "async"
     
     # YOLO weights path
-    weights_path: "/home/vscode/workspace/packages/src/anytime_yolo/weights_32"  # Path to the anytimeyolo weights directory
+    weights_path: "weights_32"  # Path to the anytimeyolo weights directory (relative to anytime_yolo package share, or set to absolute path)
     
     # Logging configuration
     log_level: "info"  # Options: "debug", "info", "warn", "error", "fatal"

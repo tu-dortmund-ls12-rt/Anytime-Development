@@ -38,4 +38,4 @@ ros2 launch experiments video_publisher_only.launch.py \
 
 Default configurations are in `config/` directory.
 
-See `/home/vscode/workspace/experiments/` for complete experimental evaluation pipelines.
+See the `experiments/` directory at the repository root for complete experimental evaluation pipelines.

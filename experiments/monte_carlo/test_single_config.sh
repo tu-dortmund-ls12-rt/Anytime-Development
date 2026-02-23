@@ -3,8 +3,9 @@
 
 set -e
 
-WORKSPACE_DIR="/home/vscode/workspace"
-EXPERIMENT_DIR="${WORKSPACE_DIR}/experiments/monte_carlo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="${WORKSPACE_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+EXPERIMENT_DIR="${SCRIPT_DIR}"
 CONFIG_DIR="${EXPERIMENT_DIR}/configs"
 TRACE_DIR="${EXPERIMENT_DIR}/traces"
 PACKAGES_DIR="${WORKSPACE_DIR}/packages"

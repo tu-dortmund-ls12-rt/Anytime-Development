@@ -55,7 +55,7 @@ ls results/plots/
 ### 1. Generate Configuration Files
 
 ```bash
-cd /home/vscode/workspace/experiments/interference
+cd experiments/interference
 python3 generate_configs.py
 ```
 
@@ -291,8 +291,8 @@ pip3 install pandas numpy matplotlib
 ```
 
 ### Experiments fail to launch
-- Verify packages are built: `cd /home/vscode/workspace/packages && colcon build`
-- Source the workspace: `source /home/vscode/workspace/packages/install/setup.bash`
+- Verify packages are built: `cd packages && colcon build`
+- Source the workspace: `source packages/install/setup.bash`
 - Check config files exist: `ls configs/`
 
 ### Interference timer not running

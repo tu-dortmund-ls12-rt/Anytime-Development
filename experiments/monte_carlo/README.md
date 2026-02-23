@@ -177,8 +177,8 @@ pip3 install pandas numpy matplotlib
 ```
 
 ### Experiments fail to launch
-- Verify packages are built: `cd /home/vscode/workspace/packages && colcon build`
-- Source the workspace: `source /home/vscode/workspace/packages/install/setup.bash`
+- Verify packages are built: `cd packages && colcon build`
+- Source the workspace: `source packages/install/setup.bash`
 - Check config files exist: `ls configs/`
 
 ## Expected Runtime

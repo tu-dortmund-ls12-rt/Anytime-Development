@@ -12,7 +12,7 @@ ROS2 implementation of anytime algorithms with comprehensive tracing and experim
 
 ### Build Workspace
 ```bash
-cd /home/vscode/workspace/packages
+cd packages
 colcon build --symlink-install
 source install/setup.bash
 ```

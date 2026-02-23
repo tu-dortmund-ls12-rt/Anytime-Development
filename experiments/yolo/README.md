@@ -100,13 +100,13 @@ python3 7_analyze_cancellation.py
 
 1. **Build ROS2 workspace**:
    ```bash
-   cd /home/vscode/workspace/packages
+   cd packages
    colcon build --symlink-install
    ```
 
 2. **Download YOLO weights**:
    ```bash
-   cd /home/vscode/workspace/packages/src/anytime_yolo
+   cd packages/src/anytime_yolo
    wget https://tu-dortmund.sciebo.de/s/W86QE9hUscsUPeM/download -O weights.zip
    unzip -o weights.zip -d .
    rm weights.zip
@@ -114,8 +114,8 @@ python3 7_analyze_cancellation.py
 
 3. **Download test images**:
    ```bash
-   mkdir -p /home/vscode/workspace/packages/src/video_publisher/images
-   cd /home/vscode/workspace/packages/src/video_publisher/images
+   mkdir -p packages/src/video_publisher/images
+   cd packages/src/video_publisher/images
    wget https://tu-dortmund.sciebo.de/s/aA9MDhgN2lBmeZk/download -O images.zip
    unzip -o images.zip -d .
    rm images.zip
@@ -228,13 +228,13 @@ lttng list  # Check active sessions
 ```
 
 ### Missing Images or Weights
-- **Images:** `/home/vscode/workspace/packages/src/video_publisher/images/`
-- **Weights:** `/home/vscode/workspace/packages/src/anytime_yolo/weights_32/`
+- **Images:** `packages/src/video_publisher/images/`
+- **Weights:** `packages/src/anytime_yolo/weights_32/`
 - Re-run download tasks or use manual wget commands above
 
 ### Script Permission Errors
 ```bash
-chmod +x /home/vscode/workspace/experiments/yolo/*.sh
+chmod +x experiments/yolo/*.sh
 ```
 
 ### Python Import Errors
