@@ -1,122 +1,60 @@
-# 10 — Artifact Evaluation Guide
+# Step 10: Artifact Evaluation Guide
 
-**Day:** 4 (Fri Feb 27)
+**Status:** Pending
+**Day:** 3 (Thu Feb 26)
 **Priority:** HIGH
-**Estimated time:** 1 hour
-**Depends on:** 07 (Python CLI)
+**Time:** ~1.5h
+**Dependencies:** Steps 6, 9
 
----
+## Why
 
-## Overview
+This is the first document evaluators read. It must map paper claims to concrete commands.
 
-Create a reviewer-facing document that maps paper claims to experiments and provides clear instructions for validation. This is the first thing AE reviewers will read.
-
----
+**AE Impact:** All three criteria. This is the keystone document.
 
 ## New File: `ARTIFACT_EVALUATION.md` (repository root)
 
-### Contents
+### Structure
 
-```markdown
-# Artifact Evaluation Guide
+1. **Paper:** Title, authors, venue
+2. **Hardware Requirements:** x86_64 Linux, RAM, disk, Docker; GPU optional (CUDA 12.5)
+3. **Quick Start** (< 10 min):
 
-## Paper
-"Anytime ROS 2: Timely Task Completion in Non-Preemptive Robotic Systems" — RTAS 2026
+   ```bash
+   docker compose build anytime-cpu
+   docker compose run --rm anytime-cpu bash
+   # Inside container:
+   cd packages && colcon build --symlink-install && source install/setup.bash
+   ./scripts/smoke_test.sh
+   ```
 
-## Claims and Experiments
+4. **Reproducing Paper Figures** - explicit mapping:
 
-| # | Paper Claim | Section | Experiment | Expected Result |
-|---|-------------|---------|------------|-----------------|
-| 1 | Anytime algorithms reduce task interference | VIII | Monte Carlo + Interference | Smaller batch sizes → lower timer jitter |
-| 2 | Reactive and proactive modes trade off latency vs memory | VIII | Monte Carlo | Proactive: lower cancel latency. Reactive: less memory |
-| 3 | Cooperative notification outperforms passive polling | VI-B | YOLO (sync vs async) | Async throughput ≥ sync throughput |
-| 4 | Quality-based cancellation achieves target quality with fewer layers | IX-C | YOLO Phase 4 | Score threshold met at layer 8-16 (not 25) |
-| 5 | Cancellation delay scales with batch size | IX-B | Monte Carlo + YOLO Phase 4 | Larger batch → higher cancel delay |
-| 6 | Multi-threaded executor reduces interference | IX-A | Interference | Multi-threaded: fewer missed timer periods |
+   | Paper Element | Command | Duration | Hardware |
+   | ------------- | ------- | -------- | -------- |
+   | Figure 5a (segment count) | `./scripts/reproduce_figure.sh 5a` | ~40 min | CPU |
+   | Figure 5b (cancel delay) | `./scripts/reproduce_figure.sh 5b` | ~40 min | CPU |
+   | Figure 6a+6b + Table I | `./scripts/reproduce_figure.sh 6` | ~40 min | CPU |
+   | Figure 7a (quality progression) | `./scripts/reproduce_figure.sh 7a` | ~30 min | GPU |
+   | Figure 7b (runtime comparison) | `./scripts/reproduce_figure.sh 7b` | ~3 hrs | GPU |
 
-## Hardware Requirements
+5. **Quick Reproduction** (~15 min, CPU only):
 
-| Mode | Requirements | Experiments Available |
-|------|-------------|---------------------|
-| CPU  | x86_64 Linux, 16GB RAM, 20GB disk, Docker | Monte Carlo, Interference |
-| GPU  | Above + NVIDIA GPU (CUDA 12.5), 50GB disk | All (Monte Carlo, Interference, YOLO) |
+   ```bash
+   ./scripts/run_all.sh --quick --cpu-only
+   ```
 
-## Quick Start
+6. **Full Reproduction** (~5 hrs with GPU):
 
-### Prerequisites
-- Docker Engine installed
-- (For GPU) NVIDIA Container Toolkit installed
+   ```bash
+   ./scripts/run_all.sh --full
+   ```
 
-### Installation
-```bash
-pip install -e ./anytime_cli
-```
+7. **Output Locations** - where to find results, CSV data, and plots
+8. **Environment Support** - Docker tested on Ubuntu 22.04/24.04
+9. **Troubleshooting** - common issues and fixes
+10. **Project Structure** - brief overview pointing to docs/
 
-### Quick Validation (~5 min)
-```bash
-anytime-eval run-all --mode cpu --experiment smoke
-```
+### Paper PDF
 
-This builds the container, runs unit tests, and executes a short Monte Carlo experiment.
-
-### CPU-Only Reproduction (~2 hours)
-```bash
-anytime-eval run-all --mode cpu --experiment monte_carlo
-anytime-eval run-all --mode cpu --experiment interference
-```
-
-Validates Claims 1, 2, 5, 6.
-
-### Full Reproduction (~5 hours, requires GPU)
-```bash
-anytime-eval run-all --mode gpu --experiment all
-```
-
-Validates all claims including YOLO experiments (Claims 3, 4).
-
-## Output
-
-Results are generated in:
-- `experiments/monte_carlo/results/` — CSV, JSON, plots
-- `experiments/interference/results/` — CSV, JSON, plots
-- `experiments/yolo/results/` — CSV, JSON, plots (quality, throughput, cancellation)
-
-### Key Output Files
-
-| File | Description | Validates |
-|------|-------------|-----------|
-| `monte_carlo/results/plots/throughput_vs_batch_size.png` | Batch size scaling | Claim 5 |
-| `monte_carlo/results/plots/cancellation_delay.png` | Cancel latency by mode | Claim 2 |
-| `interference/results/plots/timer_period_vs_batch_size.png` | Interference severity | Claims 1, 6 |
-| `yolo/results/quality_analysis/quality_progression.png` | Layer-wise detection quality | Claim 4 |
-| `yolo/results/runtime_analysis/throughput_comparison.png` | Sync vs async throughput | Claim 3 |
-| `yolo/results/phase4_analysis/cancellation_delay.png` | YOLO cancel performance | Claims 4, 5 |
-
-## Troubleshooting
-
-### Docker build fails
-- Ensure Docker Engine (not Docker Desktop) is installed
-- Check available disk space: `df -h`
-
-### GPU not detected
-- Verify NVIDIA driver: `nvidia-smi`
-- Verify container toolkit: `docker run --rm --gpus all nvidia/cuda:12.5.0-base-ubuntu22.04 nvidia-smi`
-
-### Experiment produces no traces
-- Verify LTTng is working: `lttng list -u` (inside container)
-- Check tracing group membership: `groups` should include `tracing`
-
-### Results differ from paper
-- Small numerical differences are expected due to stochastic algorithms
-- Monte Carlo: pi estimates converge with more iterations
-- Timing results depend on hardware — trends should match, absolute values may differ
-```
-
----
-
-## Verification
-
-- Review with a fresh perspective: can a reviewer follow this without prior knowledge?
-- Test each "Quick Start" command end-to-end
-- Verify all output file paths exist after running experiments
-- Check troubleshooting steps against known issues
+AE webpage requires: "be sure to include a version of the accepted paper related to the artifact." `main.pdf` already exists at repo root - verify it's the latest version and mention it in the guide.
