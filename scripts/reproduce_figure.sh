@@ -265,5 +265,9 @@ case "${FIGURE}" in
         ;;
 esac
 
+# Collect paper figures into paper_figures/
 echo ""
-echo "Done."
+"${SCRIPT_DIR}/collect_figures.sh"
+
+echo ""
+echo "Done. Paper figures are in: ${WORKSPACE_DIR}/paper_figures/"

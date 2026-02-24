@@ -8,7 +8,8 @@
       "Bash(echo $LD_LIBRARY_PATH)",
       "Bash(source /home/vscode/workspace/packages/install/setup.bash)",
       "Bash(lttng list -u)",
-      "Bash(nm -D /home/vscode/workspace/packages/install/anytime_tracing/lib/libanytime_tracing.so)"
+      "Bash(nm -D /home/vscode/workspace/packages/install/anytime_tracing/lib/libanytime_tracing.so)",
+      "Bash(git submodule status)"
     ]
   }
 }

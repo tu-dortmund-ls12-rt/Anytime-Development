@@ -1,4 +1,0 @@
-[submodule "packages/src/vision_msgs"]
-	path = packages/src/vision_msgs
-	url = https://github.com/ros-perception/vision_msgs.git
-	branch = ros2

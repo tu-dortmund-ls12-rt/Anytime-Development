@@ -28,3 +28,11 @@ __pycache__/
 .pytest_cache/
 dist/
 
+# Credentials (never commit)
+CREDENTIALS*
+credentials*
+*.credentials
+
+# Generated paper figures
+paper_figures/
+
