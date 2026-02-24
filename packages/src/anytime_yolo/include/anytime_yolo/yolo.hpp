@@ -169,12 +169,13 @@ public:
     free();
     this->size = size;
     cudaError_t status = cudaMalloc(&device_ptr, size);
-    cudaMemset(device_ptr, 0, size);
-
     if (status != cudaSuccess) {
       std::cerr << "Error allocating CUDA memory: " << cudaGetErrorString(status) << std::endl;
+      device_ptr = nullptr;
+      return false;
     }
-    return (status == cudaSuccess);
+    cudaMemset(device_ptr, 0, size);
+    return true;
   }
 
   // Copy from host to device

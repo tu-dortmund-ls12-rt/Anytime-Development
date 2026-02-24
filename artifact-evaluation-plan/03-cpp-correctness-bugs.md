@@ -1,6 +1,6 @@
 # Step 3: C++ Correctness Bugs
 
-**Status:** Pending
+**Status:** Completed
 **Day:** 1 (Tue Feb 24)
 **Priority:** HIGH
 **Time:** ~1.5h

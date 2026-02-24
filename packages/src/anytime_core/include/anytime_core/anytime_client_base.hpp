@@ -64,9 +64,9 @@ protected:
   virtual void log_result(const typename AnytimeGoalHandle::WrappedResult & result)
   {
     (void)result;
-    RCLCPP_DEBUG(
-      this->get_logger(), "[Goal ID: %s] Result received",
-      rclcpp_action::to_string(goal_handle_->get_goal_id()).c_str());
+    std::string goal_id_str =
+      goal_handle_ ? rclcpp_action::to_string(goal_handle_->get_goal_id()) : "unknown";
+    RCLCPP_DEBUG(this->get_logger(), "[Goal ID: %s] Result received", goal_id_str.c_str());
   }
 
   /**
@@ -123,12 +123,14 @@ protected:
       case rclcpp_action::ResultCode::ABORTED:
         RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
         break;
-      case rclcpp_action::ResultCode::CANCELED:
+      case rclcpp_action::ResultCode::CANCELED: {
+        std::string goal_id_str =
+          goal_handle_ ? rclcpp_action::to_string(goal_handle_->get_goal_id()) : "unknown";
         RCLCPP_DEBUG(
-          this->get_logger(), "[Goal ID: %s] Goal was canceled",
-          rclcpp_action::to_string(goal_handle_->get_goal_id()).c_str());
+          this->get_logger(), "[Goal ID: %s] Goal was canceled", goal_id_str.c_str());
         post_processing(result);
         break;
+      }
       default:
         RCLCPP_ERROR(this->get_logger(), "Unknown result code");
         break;

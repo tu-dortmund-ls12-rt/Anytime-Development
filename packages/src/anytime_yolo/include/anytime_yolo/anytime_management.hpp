@@ -132,8 +132,8 @@ public:
 
     // Count valid detections (confidence > 0)
     int detection_count = 0;
-    for (size_t i = 0; i < yolo_result.size(); i += 6) {
-      if (i + 4 < yolo_result.size() && yolo_result[i + 4] > 0.0) {
+    for (size_t i = 0; i + 5 < yolo_result.size(); i += 6) {
+      if (yolo_result[i + 4] > 0.0) {
         detection_count++;
       }
     }
@@ -141,13 +141,24 @@ public:
     // Trace exit calculation end with detection count
     TRACE_YOLO_EXIT_CALCULATION_END(this->node_, processed_layers_, detection_count);
 
-    for (size_t i = 0; i < yolo_result.size(); i += 6) {
+    // Get original image dimensions (once, outside loop)
+    float orig_width = static_cast<float>(IMAGE_SIZE);
+    float orig_height = static_cast<float>(IMAGE_SIZE);
+    if (this->goal_handle_) {
+      const auto & image_msg = this->goal_handle_->get_goal()->image;
+      orig_width = static_cast<float>(image_msg.width);
+      orig_height = static_cast<float>(image_msg.height);
+    }
+
+    // Calculate scaling factors
+    float scale_x = orig_width / static_cast<float>(IMAGE_SIZE);
+    float scale_y = orig_height / static_cast<float>(IMAGE_SIZE);
+
+    for (size_t i = 0; i + 5 < yolo_result.size(); i += 6) {
       // skip if confidence is 0.0
       if (yolo_result[i + 4] == 0.0) {
         continue;
       }
-
-      if (i + 5 >= yolo_result.size()) break;  // Safety check
 
       // Create a new detection
       vision_msgs::msg::Detection2D detection;
@@ -157,15 +168,6 @@ public:
       detection.bbox.center.position.y = (yolo_result[i + 1] + yolo_result[i + 3]) / 2;
       detection.bbox.size_x = yolo_result[i + 2] - yolo_result[i];
       detection.bbox.size_y = yolo_result[i + 3] - yolo_result[i + 1];
-
-      // Get original image dimensions
-      const auto & image_msg = this->goal_handle_->get_goal()->image;
-      float orig_width = static_cast<float>(image_msg.width);
-      float orig_height = static_cast<float>(image_msg.height);
-
-      // Calculate scaling factors
-      float scale_x = orig_width / static_cast<float>(IMAGE_SIZE);
-      float scale_y = orig_height / static_cast<float>(IMAGE_SIZE);
 
       // Adjust bounding box to original image size
       detection.bbox.center.position.x *= scale_x;
