@@ -15,6 +15,8 @@ from pathlib import Path
 from collections import defaultdict
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
@@ -909,8 +911,11 @@ def main():
     print("========================================")
     print()
 
-    # Find all trace directories
-    trace_dirs = sorted([d for d in TRACE_DIR.iterdir() if d.is_dir()])
+    # Find all trace directories (only batch_*_run* experiment traces)
+    trace_dirs = sorted([
+        d for d in TRACE_DIR.iterdir()
+        if d.is_dir() and d.name.startswith('batch_')
+    ])
 
     print(f"Looking for traces in: {TRACE_DIR}\n")
     for trace_dir in trace_dirs:

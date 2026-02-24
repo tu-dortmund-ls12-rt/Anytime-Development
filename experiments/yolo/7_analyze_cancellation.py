@@ -23,6 +23,8 @@ Output: results/phase4_analysis/
 import subprocess
 import re
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
 from collections import defaultdict
