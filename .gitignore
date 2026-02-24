@@ -4,7 +4,6 @@ packages/install
 packages/log
 **/.cache
 **/compile_commands.json
-**/.cache
 *.engine
 plots
 results
@@ -21,4 +20,11 @@ packages/src/anytime_yolo/weights_32/nms.onnx
 packages/src/anytime_yolo/weights_32/combine_subheads_*.onnx
 packages/src/anytime_yolo/weights_32/subexit_*.onnx
 packages/src/video_publisher/images/image_*.jpg
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+dist/
 

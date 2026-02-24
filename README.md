@@ -1,56 +1,98 @@
-# Anytime ROS2 - Experimental Evaluation
+# Anytime ROS 2
 
-ROS2 implementation of anytime algorithms with comprehensive tracing and experimental evaluation.
+ROS 2 implementation of anytime algorithms for timely task completion in non-preemptive robotic systems.
+
+> **Artifact Evaluation:** See [`ARTIFACT_EVALUATION.md`](ARTIFACT_EVALUATION.md) for step-by-step instructions to reproduce all paper figures and tables. The accepted paper is included as [`main.pdf`](main.pdf).
 
 ## Quick Start
 
-### Setup
-1. Install [Docker Engine](https://docs.docker.com/engine/install/) and [VS Code](https://code.visualstudio.com/)
-2. Install Docker and Dev Containers extensions in VS Code
-3. For GPU support: Install [Nvidia Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-4. Open this folder in VS Code and rebuild the dev container
+### Prerequisites
 
-### Build Workspace
+- [Docker Engine](https://docs.docker.com/engine/install/) (24+) with Compose V2
+- For GPU support: [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+### Build and Run
+
 ```bash
-cd packages
-colcon build --symlink-install
-source install/setup.bash
+# CPU-only
+docker compose build anytime-cpu
+docker compose run --rm anytime-cpu bash
+
+# OR with GPU support
+docker compose build anytime-gpu
+docker compose run --rm anytime-gpu bash
 ```
+
+Inside the container:
+
+```bash
+cd packages && colcon build --symlink-install && source install/setup.bash
+cd ..
+
+# Run smoke test (< 2 minutes)
+./scripts/smoke_test.sh
+
+# Run all CPU experiments with quick settings (~10 minutes)
+./scripts/run_all.sh --quick --cpu-only
+
+# Reproduce a specific paper figure
+./scripts/reproduce_figure.sh 5a --quick
+```
+
+### VS Code Dev Container
+
+Alternatively, open this folder in VS Code with the Dev Containers extension. Three configurations are available:
+
+- `linux/` — Full environment with CUDA + TensorRT (GPU required)
+- `linux-no-hardware/` — CPU-only environment
+- `jetson/` — NVIDIA Jetson (ARM64)
 
 ## Experiments
 
-Three experimental evaluations are implemented:
+Three experimental evaluations reproduce the paper results:
 
-### 1. Monte Carlo (`experiments/monte_carlo/`)
-**Purpose:** Evaluate batch size scaling and threading impact  
-**Run:** `./run_monte_carlo_experiments.sh`  
-**Duration:** ~40 minutes (24 configs × 3 trials)
+### Monte Carlo (Figures 5a, 5b)
 
-### 2. Interference (`experiments/interference/`)
-**Purpose:** Measure timing interference between batch processing and periodic tasks  
-**Run:** `./run_interference_experiments.sh`  
-**Duration:** ~40 minutes (24 configs × 3 trials)
+Evaluates batch size scaling, mode comparison (reactive vs proactive), and threading impact on anytime Monte Carlo pi estimation.
 
-### 3. YOLO (`experiments/yolo/`)
-**Purpose:** Evaluate anytime YOLO with cancellation strategies  
-**Phases:**
-- Phase 1: `./run_phase1_baseline.sh` - Baseline quality data
-- Phase 3: `./run_phase3_max_throughput.sh` - Max throughput across configs
-- Phase 4: `./run_phase4_experiments.sh` - Cancellation performance
+```bash
+./scripts/reproduce_figure.sh 5a        # Full run (~40 min)
+./scripts/reproduce_figure.sh 5a --quick # Quick run (~5 min)
+```
 
-See individual experiment directories for detailed documentation.
+### Interference (Figure 6, Table I)
+
+Measures timing interference between anytime batch processing and periodic timer tasks.
+
+```bash
+./scripts/reproduce_figure.sh 6          # Full run (~40 min)
+./scripts/reproduce_figure.sh 6 --quick  # Quick run (~3 min)
+```
+
+### YOLO (Figures 7a, 7b) — GPU Required
+
+Evaluates anytime YOLO object detection with layer-wise cancellation on GPU.
+
+```bash
+./scripts/reproduce_figure.sh 7a  # Quality progression (~30 min)
+./scripts/reproduce_figure.sh 7b  # Runtime comparison (~1 hr)
+```
+
+See [`ARTIFACT_EVALUATION.md`](ARTIFACT_EVALUATION.md) for YOLO prerequisites (weights and test images).
 
 ## Tracing
 
 All experiments use LTTng for low-overhead tracing. Custom tracepoints are defined in `packages/src/anytime_tracing/`.
 
-**Key tracepoints:**
-- `anytime:anytime_compute_entry/exit` - Batch computation timing
-- `anytime:client_send_goal` - Client request tracking
-- `anytime:yolo_layer_start/end` - YOLO layer processing
-- `anytime:interference_timer_callback` - Timer interference
+Key tracepoints:
 
-**View traces:**
+- `anytime:anytime_compute_entry/exit` — Batch computation timing
+- `anytime:client_send_goal` — Client request tracking
+- `anytime:yolo_layer_start/end` — YOLO layer processing
+- `anytime:interference_timer_callback` — Timer interference
+
+View traces:
+
 ```bash
 babeltrace ~/.lttng-traces/session_name/
 ```
@@ -58,16 +100,42 @@ babeltrace ~/.lttng-traces/session_name/
 ## Project Structure
 
 ```
-packages/src/
-├── anytime_core/          # Base anytime functionality
-├── anytime_tracing/       # LTTng tracing infrastructure
-├── anytime_monte_carlo/   # Monte Carlo implementation
-├── anytime_yolo/          # Anytime YOLO implementation
-├── interference/          # Timer interference test node
-└── experiments/           # Unified launch files and configs
-
-experiments/
-├── monte_carlo/           # Monte Carlo experiments
-├── interference/          # Interference experiments
-└── yolo/                  # YOLO experiments
+Anytime-Development/
+├── ARTIFACT_EVALUATION.md      # Artifact evaluation guide
+├── main.pdf                    # Accepted paper
+├── docker-compose.yml          # Container management (GPU + CPU)
+├── LICENSE                     # Apache 2.0
+├── requirements.txt            # Python dependencies
+├── packages/src/
+│   ├── anytime_core/           # Base anytime computation framework
+│   ├── anytime_interfaces/     # ROS 2 action type definitions
+│   ├── anytime_monte_carlo/    # Monte Carlo pi estimation (CPU)
+│   ├── anytime_yolo/           # Anytime YOLO detection (GPU)
+│   ├── anytime_tracing/        # LTTng tracepoint definitions
+│   ├── experiments/            # Launch files and default configs
+│   ├── interference/           # Timer interference test node
+│   └── video_publisher/        # Video frame publisher for YOLO
+├── experiments/
+│   ├── monte_carlo/            # MC experiment scripts and evaluation
+│   ├── interference/           # Interference experiment scripts and evaluation
+│   └── yolo/                   # YOLO pipeline (9 steps)
+└── scripts/
+    ├── smoke_test.sh           # Quick validation (< 2 min)
+    ├── run_all.sh              # End-to-end runner (--quick/--full/--cpu-only)
+    └── reproduce_figure.sh     # Per-figure reproduction
 ```
+
+## Citation
+
+```bibtex
+@inproceedings{teper2026anytime,
+  title     = {Anytime {ROS} 2: Timely Task Completion in Non-Preemptive Robotic Systems},
+  author    = {Teper, Harun},
+  booktitle = {IEEE Real-Time and Embedded Technology and Applications Symposium (RTAS)},
+  year      = {2026}
+}
+```
+
+## License
+
+This project is licensed under the Apache License 2.0. See [`LICENSE`](LICENSE) for details.
