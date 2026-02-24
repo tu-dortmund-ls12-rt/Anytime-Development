@@ -16,7 +16,9 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86
     dpkg -i cuda-repo-ubuntu2204-12-5-local_12.5.1-555.42.06-1_amd64.deb && \
     cp /var/cuda-repo-ubuntu2204-12-5-local/cuda-*-keyring.gpg /usr/share/keyrings/ && \
     apt-get update && \
-    apt-get -y install cuda-toolkit-12-5
+    apt-get -y install cuda-toolkit-12-5 && \
+    rm -f cuda-repo-ubuntu2204-12-5-local_12.5.1-555.42.06-1_amd64.deb && \
+    rm -rf /var/cuda-repo-ubuntu2204-12-5-local /var/lib/apt/lists/*
 
 # --- Configure CUDA paths ---
 
@@ -30,79 +32,39 @@ RUN wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorr
     cp /var/nv-tensorrt-local-repo-ubuntu2204-10.3.0-cuda-12.5/*-keyring.gpg /usr/share/keyrings/ && \
     apt-get update && \
     apt-get install -y tensorrt && \
-    rm nv-tensorrt-local-repo-ubuntu2204-10.3.0-cuda-12.5_1.0-1_amd64.deb
+    rm -f nv-tensorrt-local-repo-ubuntu2204-10.3.0-cuda-12.5_1.0-1_amd64.deb && \
+    rm -rf /var/nv-tensorrt-local-repo-ubuntu2204-10.3.0-cuda-12.5 /var/lib/apt/lists/*
 
-# --- Install ROS2 ---
+# --- Install locales and add ROS2 repository ---
 
-# install locales for UTF-8 support
-RUN apt-get update && apt-get install -y locales && \
+RUN apt-get update && apt-get install -y \
+    locales \
+    software-properties-common \
+    curl \
+    git && \
     locale-gen en_US.UTF-8 && \
-    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
+    add-apt-repository universe && \
+    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null && \
+    rm -rf /var/lib/apt/lists/*
 
 # set locale environment variables
 ENV LANG=en_US.UTF-8
 
-# add ROS2 repository
-RUN apt-get update && \
-    apt-get install -y software-properties-common curl git && \
-    add-apt-repository universe && \
-    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+# --- Install ROS2 (binary), tracing, dev tools, and YOLO dependencies ---
 
-# install ROS2 dependencies
 RUN apt-get update && apt-get install -y \
-    python3-flake8-docstrings \
+    ros-humble-desktop \
+    ros-humble-rmw-cyclonedds-cpp \
+    lttng-tools \
+    liblttng-ust-dev \
+    python3-babeltrace \
+    python3-lttng \
+    lttng-modules-dkms \
     python3-pip \
-    python3-pytest-cov \
-    python3-flake8-blind-except \
-    python3-flake8-builtins \
-    python3-flake8-class-newline \
-    python3-flake8-comprehensions \
-    python3-flake8-deprecated \
-    python3-flake8-import-order \
-    python3-flake8-quotes \
-    python3-pytest-repeat \
-    python3-pytest-rerunfailures \
-    python3-vcstool \
     python3-rosdep \
-    ros-dev-tools
-
-# install ROS2
-RUN mkdir -p /home/vscode/ros2_humble/src && \
-    cd /home/vscode/ros2_humble && \
-    vcs import --input https://raw.githubusercontent.com/ros2/ros2/humble/ros2.repos src && \
-    apt-get update && \
-    sudo rosdep init && \
-    rosdep update && \
-    apt-get update && \
-    apt-get -y upgrade && \
-    cd /home/vscode/ros2_humble && \
-    rosdep install --rosdistro humble --from-paths src --ignore-src -y --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers" && \
-    cd /home/vscode/ros2_humble && \
-    colcon build --symlink-install
-
-# --- Install ROS2 tracing ---
-
-RUN . /home/vscode/ros2_humble/install/setup.sh && \
-    apt-get update && \
-    apt-get install -y lttng-tools liblttng-ust-dev && \
-    apt-get install -y python3-babeltrace python3-lttng && \
-    apt-get install -y lttng-modules-dkms && \
-    groupadd -f -r tracing && \
-    usermod -a -G tracing vscode && \
-    mkdir -p /home/vscode/ros2_tracing_ws/src/ros2_tracing && \
-    git clone -b humble https://gitlab.com/ros-tracing/ros2_tracing.git /home/vscode/ros2_tracing_ws/src/ros2_tracing && \
-    mkdir -p /home/vscode/ros2_tracing_ws/src/tracetools_analysis && \
-    git clone -b humble https://github.com/ros-tracing/tracetools_analysis.git /home/vscode/ros2_tracing_ws/src/tracetools_analysis && \
-    cd /home/vscode/ros2_tracing_ws &&\
-    colcon build --symlink-install --allow-overriding tracetools && \
-    pip install bokeh jupyter
-
-# --- Install DevTools ---
-
-RUN apt-get update && \
-    apt-get -y install \
-    python3-pip \
+    ros-dev-tools \
     clangd \
     clang \
     clang-format \
@@ -112,25 +74,44 @@ RUN apt-get update && \
     cmake \
     libc++-dev \
     libstdc++-12-dev \
-    libc++abi-dev && \
-    pip install pep8 pylint
+    libc++abi-dev \
+    nlohmann-json3-dev \
+    dos2unix \
+    libboost-python1.74-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# --- Anytime Dependencies ---
+# --- Install ROS2 tracing (from source, not available as binary packages) ---
 
-RUN pip install pandas "numpy<2.0" && \
-    pip install --upgrade "numpy<2.0" matplotlib pandas
+RUN /bin/bash -c '. /opt/ros/humble/setup.bash && \
+    mkdir -p /home/vscode/ros2_tracing_ws/src && \
+    git clone --depth 1 -b humble https://gitlab.com/ros-tracing/ros2_tracing.git /home/vscode/ros2_tracing_ws/src/ros2_tracing && \
+    git clone --depth 1 -b humble https://github.com/ros-tracing/tracetools_analysis.git /home/vscode/ros2_tracing_ws/src/tracetools_analysis && \
+    cd /home/vscode/ros2_tracing_ws && \
+    colcon build --symlink-install --allow-overriding tracetools'
 
-# --- Yolo Dependencies ---
+# --- Set up tracing group ---
 
-RUN apt-get -y install nlohmann-json3-dev dos2unix libboost-python1.74-dev
-RUN pip install opencv-python cv_bridge
+RUN groupadd -f -r tracing && \
+    usermod -a -G tracing vscode
+
+# --- Python dependencies ---
+
+RUN pip install \
+    "numpy<2.0" \
+    pandas \
+    matplotlib \
+    bokeh \
+    jupyter \
+    pep8 \
+    pylint \
+    opencv-python
 
 # --- Set up user ---
 
 USER vscode
 
-# source ROS2 setup file and workspace
-RUN echo '. /home/vscode/ros2_humble/install/setup.sh' >> /home/vscode/.bashrc && \
+# source ROS2 setup file and tracing workspace
+RUN echo '. /opt/ros/humble/setup.bash' >> /home/vscode/.bashrc && \
     echo '. /home/vscode/ros2_tracing_ws/install/setup.sh' >> /home/vscode/.bashrc
 
 # configure environment variables

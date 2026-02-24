@@ -2,7 +2,3 @@
 	path = packages/src/vision_msgs
 	url = https://github.com/ros-perception/vision_msgs.git
 	branch = ros2
-[submodule "packages/src/vision_opencv"]
-	path = packages/src/vision_opencv
-	url = https://github.com/ros-perception/vision_opencv.git
-	branch = humble
