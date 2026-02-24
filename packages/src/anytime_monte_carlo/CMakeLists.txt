@@ -94,6 +94,13 @@ install(DIRECTORY
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_monte_carlo_management test/test_monte_carlo_management.cpp)
+  ament_target_dependencies(test_monte_carlo_management
+    rclcpp rclcpp_action anytime_interfaces anytime_core anytime_tracing)
+  target_include_directories(test_monte_carlo_management PRIVATE include)
 endif()
 
 ament_export_include_directories(include)

@@ -23,6 +23,17 @@ install(
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(anytime_interfaces REQUIRED)
+
+  ament_add_gtest(test_anytime_waitable test/test_anytime_waitable.cpp)
+  ament_target_dependencies(test_anytime_waitable rclcpp rclcpp_action anytime_tracing)
+  target_include_directories(test_anytime_waitable PRIVATE include)
+
+  ament_add_gtest(test_anytime_base test/test_anytime_base.cpp)
+  ament_target_dependencies(test_anytime_base rclcpp rclcpp_action anytime_interfaces anytime_tracing)
+  target_include_directories(test_anytime_base PRIVATE include)
 endif()
 
 # Export dependencies
