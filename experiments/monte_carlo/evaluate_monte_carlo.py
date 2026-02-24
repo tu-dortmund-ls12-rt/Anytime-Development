@@ -110,8 +110,10 @@ def parse_trace_directory(trace_dir):
                 continue
 
             timestamp_str = line[ts_start+1:ts_end]
-            # Convert timestamp to nanoseconds
-            timestamp = float(timestamp_str.replace(':', '')) * 1e9
+            # Convert HH:MM:SS.nanoseconds to nanoseconds
+            ts_parts = timestamp_str.split(':')
+            timestamp = (int(ts_parts[0]) * 3600 + int(ts_parts[1]) * 60
+                         + float(ts_parts[2])) * 1e9
 
             # Extract event name (format: "anytime:event_name:")
             event_start = line.find('anytime:')
