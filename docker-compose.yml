@@ -1,10 +1,12 @@
 # Anytime ROS 2 — Docker Compose
 #
 # Usage:
-#   docker compose build anytime-cpu          # Build CPU-only image
-#   docker compose build anytime-gpu          # Build GPU image (requires NVIDIA Docker)
-#   docker compose run --rm anytime-cpu bash  # Start CPU container
-#   docker compose run --rm anytime-gpu bash  # Start GPU container
+#   docker compose build anytime-cpu              # Build CPU-only image
+#   docker compose build anytime-gpu              # Build GPU image (requires NVIDIA Docker)
+#   docker compose build anytime-jetson           # Build Jetson image (ARM64 / L4T JetPack)
+#   docker compose run --rm anytime-cpu bash      # Start CPU container
+#   docker compose run --rm anytime-gpu bash      # Start GPU container
+#   docker compose run --rm anytime-jetson bash   # Start Jetson container
 #
 # Inside the container:
 #   cd packages && colcon build --symlink-install && source install/setup.bash
@@ -50,5 +52,24 @@ services:
     privileged: true
     user: vscode
     environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - SHELL=/bin/bash
+
+  anytime-jetson:
+    build:
+      context: .
+      dockerfile: .devcontainer/jetson/Dockerfile
+      args:
+        ROS_DOMAIN_ID: 12
+        ROS_LOCALHOST_ONLY: 1
+    volumes:
+      - .:/home/vscode/workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    network_mode: host
+    privileged: true
+    runtime: nvidia
+    user: vscode
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
       - DISPLAY=${DISPLAY:-:0}
       - SHELL=/bin/bash
