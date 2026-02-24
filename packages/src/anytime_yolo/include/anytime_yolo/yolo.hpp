@@ -14,9 +14,9 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <ratio>
 #include <string>
-#include <optional>
 #include <variant>
 #include <vector>
 
@@ -38,7 +38,7 @@ using json = nlohmann::json;
 class Logger : public nvinfer1::ILogger
 {
 public:
-  void log(Severity severity, const char * /*msg*/) noexcept override
+  void log(Severity severity, const char * msg) noexcept override
   {
     if (severity <= Severity::kWARNING) {
       std::cerr << "[TensorRT] " << msg << std::endl;
@@ -55,9 +55,9 @@ std::string getGpuFingerprint()
   cudaGetDevice(&device);
   cudaGetDeviceProperties(&props, device);
 
-  std::string fingerprint = std::string(props.name) + "_sm" +
-    std::to_string(props.major) + std::to_string(props.minor) + "_trt" +
-    std::to_string(getInferLibVersion());
+  std::string fingerprint = std::string(props.name) + "_sm" + std::to_string(props.major) +
+                            std::to_string(props.minor) + "_trt" +
+                            std::to_string(getInferLibVersion());
 
   return fingerprint;
 }
@@ -416,7 +416,10 @@ bool buildOnnxEngine(
   }
 
   if (halfPrecision) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     config->setFlag(BuilderFlag::kFP16);
+#pragma GCC diagnostic pop
   }
 
   std::unique_ptr<IHostMemory> serializedEngine(builder->buildSerializedNetwork(*network, *config));
@@ -591,7 +594,8 @@ public:
   {
     this->runtime = std::unique_ptr<IRuntime>(createInferRuntime(logger));
     if (!this->runtime) {
-      throw std::runtime_error("Failed to create TensorRT inference runtime. "
+      throw std::runtime_error(
+        "Failed to create TensorRT inference runtime. "
         "Check CUDA and TensorRT installation.");
     }
     // Create CUDA stream
@@ -613,13 +617,11 @@ public:
         if (storedFp == currentFp) {
           fingerprintMatch = true;
         } else {
-          std::cout << "GPU/TensorRT changed (was: " << storedFp
-                    << ", now: " << currentFp
+          std::cout << "GPU/TensorRT changed (was: " << storedFp << ", now: " << currentFp
                     << "). Purging cached .engine files..." << std::endl;
         }
       } else {
-        std::cout << "No GPU fingerprint found. Will build engines for: "
-                  << currentFp << std::endl;
+        std::cout << "No GPU fingerprint found. Will build engines for: " << currentFp << std::endl;
       }
 
       if (!fingerprintMatch) {
@@ -1364,7 +1366,8 @@ private:
 
     auto context = std::unique_ptr<nvinfer1::IExecutionContext>(engine->createExecutionContext());
     if (!context) {
-      throw std::runtime_error("Failed to create execution context for layer " + std::to_string(index));
+      throw std::runtime_error(
+        "Failed to create execution context for layer " + std::to_string(index));
     }
 
     // std::cout << "Loaded engine for layer: " << index << std::endl;
@@ -1408,7 +1411,8 @@ private:
 
     auto context = std::unique_ptr<nvinfer1::IExecutionContext>(engine->createExecutionContext());
     if (!context) {
-      throw std::runtime_error("Failed to create execution context for subexit " + std::to_string(index));
+      throw std::runtime_error(
+        "Failed to create execution context for subexit " + std::to_string(index));
     }
 
     auto subexit = std::make_unique<Subexit>(
