@@ -1,3 +1,17 @@
+# Copyright 2025 Anytime System
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
@@ -8,12 +22,9 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def include_launch_description(context: LaunchContext):
-    """Include launch description"""
-
-    config_file = LaunchConfiguration("config_file")
+    """Include launch description."""
     is_reactive_proactive = LaunchConfiguration("is_reactive_proactive")
     batch_size = LaunchConfiguration("batch_size")
-    log_level = LaunchConfiguration("log_level")
 
     # Get the config file path from context
     config_path = context.launch_configurations.get('config_file', '')
@@ -27,7 +38,10 @@ def include_launch_description(context: LaunchContext):
         "multi_threading", "")
 
     # If multi_threading not provided via command line, try to read from YAML config
-    if (not multi_threading_value or multi_threading_value == '') and config_path and os.path.exists(config_path):
+    if (
+        (not multi_threading_value or multi_threading_value == '')
+        and config_path and os.path.exists(config_path)
+    ):
         import yaml
         try:
             with open(config_path, 'r') as f:
@@ -37,7 +51,9 @@ def include_launch_description(context: LaunchContext):
                         'ros__parameters', {})
                     multi_threading_from_config = params.get(
                         'multi_threading', False)
-                    multi_threading_value = "true" if multi_threading_from_config else "false"
+                    multi_threading_value = (
+                        "true" if multi_threading_from_config else "false"
+                    )
                     print(f"Loading config from: {config_path}")
         except Exception as e:
             print(
@@ -55,10 +71,12 @@ def include_launch_description(context: LaunchContext):
 
     if context.launch_configurations.get("multi_threading", "") != "":
         print(
-            f"  [Override] multi_threading: {multi_threading_value} -> is_single_multi: {is_single_multi} (from command line)")
+            f"  [Override] multi_threading: {multi_threading_value}"
+            f" -> is_single_multi: {is_single_multi} (from command line)")
     else:
         print(
-            f"  multi_threading: {multi_threading_value} -> is_single_multi: {is_single_multi} (from config file)")
+            f"  multi_threading: {multi_threading_value}"
+            f" -> is_single_multi: {is_single_multi} (from config file)")
 
     # Prepare parameters - either from config file or command line arguments
     if config_path and os.path.exists(config_path):
@@ -73,7 +91,8 @@ def include_launch_description(context: LaunchContext):
         if reactive_proactive_value and reactive_proactive_value != '':
             overrides['is_reactive_proactive'] = reactive_proactive_value
             print(
-                f"  [Override] is_reactive_proactive: {reactive_proactive_value} (from command line)")
+                f"  [Override] is_reactive_proactive:"
+                f" {reactive_proactive_value} (from command line)")
         if batch_size_value and batch_size_value != '':
             overrides['batch_size'] = int(batch_size_value)
             print(
@@ -135,8 +154,7 @@ def include_launch_description(context: LaunchContext):
 
 
 def generate_launch_description():
-    """Return launch description"""
-
+    """Return launch description."""
     # Get the package directory for anytime_monte_carlo
     try:
         package_dir = get_package_share_directory('anytime_monte_carlo')
@@ -153,19 +171,27 @@ def generate_launch_description():
     )
 
     threading_type_arg = DeclareLaunchArgument(
-        "multi_threading", default_value="", description="Threading type (overrides config file)"
+        "multi_threading",
+        default_value="",
+        description="Threading type (overrides config file)"
     )
 
     anytime_reactive_proactive_arg = DeclareLaunchArgument(
-        "is_reactive_proactive", default_value="", description="Anytime reactive (overrides config file)"
+        "is_reactive_proactive",
+        default_value="",
+        description="Anytime reactive (overrides config file)"
     )
 
     batch_size_arg = DeclareLaunchArgument(
-        "batch_size", default_value="", description="Batch size for compute iterations (overrides config file)"
+        "batch_size",
+        default_value="",
+        description="Batch size for compute iterations (overrides config)"
     )
 
     log_level_arg = DeclareLaunchArgument(
-        "log_level", default_value="", description="Logging level (debug, info, warn, error, fatal)"
+        "log_level",
+        default_value="",
+        description="Logging level (debug, info, warn, error, fatal)"
     )
 
     # Launch Description

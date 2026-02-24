@@ -1,3 +1,17 @@
+# Copyright 2025 Anytime System
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
@@ -8,12 +22,9 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def include_launch_description(context: LaunchContext):
-    """Include launch description"""
-
-    config_file = LaunchConfiguration('config_file')
+    """Include launch description."""
     goal_timer_period = LaunchConfiguration('goal_timer_period_ms')
     cancel_timeout_period = LaunchConfiguration('cancel_timeout_period_ms')
-    log_level = LaunchConfiguration('log_level')
 
     # Get the config file path from context
     config_path = context.launch_configurations.get('config_file', '')
@@ -37,11 +48,14 @@ def include_launch_description(context: LaunchContext):
         if goal_timer_value and goal_timer_value != '':
             overrides['goal_timer_period_ms'] = int(goal_timer_value)
             print(
-                f"  [Override] goal_timer_period_ms: {goal_timer_value} ms (from command line)")
+                f"  [Override] goal_timer_period_ms:"
+                f" {goal_timer_value} ms (from command line)")
         if cancel_timeout_value and cancel_timeout_value != '':
-            overrides['cancel_timeout_period_ms'] = int(cancel_timeout_value)
+            overrides['cancel_timeout_period_ms'] = int(
+                cancel_timeout_value)
             print(
-                f"  [Override] cancel_timeout_period_ms: {cancel_timeout_value} ms (from command line)")
+                f"  [Override] cancel_timeout_period_ms:"
+                f" {cancel_timeout_value} ms (from command line)")
         if overrides:
             parameters.append(overrides)
     else:
@@ -67,7 +81,8 @@ def include_launch_description(context: LaunchContext):
                     logger = params.get('log_level', 'info')
                     print(f"  log_level: {logger} (from config file)")
         except Exception as e:
-            print(f"Warning: Could not read log_level from config file: {e}")
+            print(
+                f"Warning: Could not read log_level from config file: {e}")
             logger = 'info'
             print(f"  log_level: {logger} (default)")
     elif logger and logger != '':
@@ -97,8 +112,7 @@ def include_launch_description(context: LaunchContext):
 
 
 def generate_launch_description():
-    """Return launch description"""
-
+    """Return launch description."""
     # Get the package directory for anytime_monte_carlo
     try:
         package_dir = get_package_share_directory('anytime_monte_carlo')
@@ -117,13 +131,13 @@ def generate_launch_description():
     goal_timer_period_arg = DeclareLaunchArgument(
         'goal_timer_period_ms',
         default_value='',
-        description='Period in milliseconds for the goal request timer (overrides config file)'
+        description='Period in ms for goal request timer (overrides config)'
     )
 
     cancel_timeout_period_arg = DeclareLaunchArgument(
         'cancel_timeout_period_ms',
         default_value='',
-        description='Period in milliseconds for the cancel timeout timer (overrides config file)'
+        description='Period in ms for cancel timeout timer (overrides config)'
     )
 
     log_level_arg = DeclareLaunchArgument(

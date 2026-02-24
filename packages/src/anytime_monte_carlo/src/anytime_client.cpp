@@ -1,6 +1,18 @@
-#include "anytime_monte_carlo/anytime_client.hpp"
+// Copyright 2025 Anytime System
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "rclcpp_components/register_node_macro.hpp"
+#include "anytime_monte_carlo/anytime_client.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -8,6 +20,8 @@
 #include <fstream>
 #include <numeric>
 #include <vector>
+
+#include "rclcpp_components/register_node_macro.hpp"
 
 AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 : anytime_core::AnytimeClientBase<Anytime>("anytime_action_client", options)
@@ -32,14 +46,14 @@ AnytimeActionClient::AnytimeActionClient(const rclcpp::NodeOptions & options)
 
   // Create a timer to send goals periodically
   timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(goal_timer_period), [this]() { this->send_goal(); });
+    std::chrono::milliseconds(goal_timer_period), [this]() {this->send_goal();});
 
   RCLCPP_DEBUG(this->get_logger(), "Anytime action client initialized");
 
   // Create a timer for cancel timeout, initially canceled
   cancel_timeout_timer_ = this->create_wall_timer(
     std::chrono::milliseconds(cancel_timeout_period),
-    [this]() { this->cancel_timeout_callback(); });
+    [this]() {this->cancel_timeout_callback();});
 
   RCLCPP_DEBUG(this->get_logger(), "Anytime action client created");
   cancel_timeout_timer_->cancel();
@@ -60,7 +74,7 @@ void AnytimeActionClient::send_goal()
   goal_msg.goal = 100000000;
 
   // Use the base class helper to send the goal
-  send_goal_to_server(goal_msg, [this]() { timer_->reset(); });
+  send_goal_to_server(goal_msg, [this]() {timer_->reset();});
 }
 
 void AnytimeActionClient::on_goal_rejected()

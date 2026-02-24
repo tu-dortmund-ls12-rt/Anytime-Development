@@ -1,5 +1,21 @@
-#ifndef ANYTIME_CLIENT_HPP
-#define ANYTIME_CLIENT_HPP
+// Copyright 2025 Anytime System
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef ANYTIME_MONTE_CARLO__ANYTIME_CLIENT_HPP_
+#define ANYTIME_MONTE_CARLO__ANYTIME_CLIENT_HPP_
+
+#include <memory>
 
 #include "anytime_core/anytime_client_base.hpp"
 #include "anytime_interfaces/action/monte_carlo.hpp"
@@ -8,7 +24,7 @@
 
 // Class definition for the Anytime Action Client
 class AnytimeActionClient
-: public anytime_core::AnytimeClientBase<anytime_interfaces::action::MonteCarlo>
+  : public anytime_core::AnytimeClientBase<anytime_interfaces::action::MonteCarlo>
 {
 public:
   // Type aliases for convenience
@@ -16,7 +32,7 @@ public:
   using AnytimeGoalHandle = rclcpp_action::ClientGoalHandle<Anytime>;
 
   // Constructor
-  AnytimeActionClient(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  explicit AnytimeActionClient(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   // Destructor
   ~AnytimeActionClient();
@@ -45,4 +61,4 @@ private:
   void cleanup_after_result() override;
 };
 
-#endif  // ANYTIME_CLIENT_HPP
+#endif  // ANYTIME_MONTE_CARLO__ANYTIME_CLIENT_HPP_

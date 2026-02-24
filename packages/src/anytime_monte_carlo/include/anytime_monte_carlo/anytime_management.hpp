@@ -1,5 +1,24 @@
-#ifndef ANYTIME_MANAGEMENT_HPP
-#define ANYTIME_MANAGEMENT_HPP
+// Copyright 2025 Anytime System
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef ANYTIME_MONTE_CARLO__ANYTIME_MANAGEMENT_HPP_
+#define ANYTIME_MONTE_CARLO__ANYTIME_MANAGEMENT_HPP_
+
+#include <cstdint>
+#include <future>
+#include <memory>
+#include <random>
 
 #include "anytime_core/anytime_base.hpp"
 #include "anytime_core/anytime_waitable.hpp"
@@ -7,21 +26,17 @@
 #include "anytime_monte_carlo/tracing.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
-#include <cstdint>
-#include <future>
-#include <random>
-
 // Aliases for better readability
 using Anytime = anytime_interfaces::action::MonteCarlo;
 using AnytimeGoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
 
 // Anytime Management class template
-template <bool isReactiveProactive>
+template<bool isReactiveProactive>
 class AnytimeManagement : public anytime_core::AnytimeBase<Anytime, AnytimeGoalHandle>
 {
 public:
   // Constructor
-  AnytimeManagement(rclcpp::Node * node, int batch_size = 1)
+  explicit AnytimeManagement(rclcpp::Node * node, int batch_size = 1)
   {
     // Initialize common base class functionality
     this->template initialize_anytime_base<isReactiveProactive>(node, batch_size);
@@ -66,7 +81,7 @@ public:
     RCLCPP_DEBUG(this->node_->get_logger(), "Monte Carlo result populated");
 
     // Calculate the result
-    result->result = 4 * (double)count_inside_ / count_total_;
+    result->result = 4 * static_cast<double>(count_inside_) / count_total_;
     result->iterations = loop_count_;
 
     // Add additional information to result
@@ -107,4 +122,4 @@ protected:
   std::uniform_real_distribution<float> dist_{0.0f, 1.0f};
 };
 
-#endif  // ANYTIME_MANAGEMENT_HPP
+#endif  // ANYTIME_MONTE_CARLO__ANYTIME_MANAGEMENT_HPP_

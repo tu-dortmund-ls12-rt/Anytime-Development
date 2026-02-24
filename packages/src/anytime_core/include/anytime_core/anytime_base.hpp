@@ -1,19 +1,33 @@
-#ifndef ANYTIME_CORE_ANYTIME_BASE_HPP
-#define ANYTIME_CORE_ANYTIME_BASE_HPP
+// Copyright 2025 Anytime System
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "anytime_core/anytime_waitable.hpp"
-#include "anytime_core/tracing.hpp"
-
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp_action/rclcpp_action.hpp>
+#ifndef ANYTIME_CORE__ANYTIME_BASE_HPP_
+#define ANYTIME_CORE__ANYTIME_BASE_HPP_
 
 #include <atomic>
 #include <memory>
+#include <string>
+
+#include "anytime_core/anytime_waitable.hpp"
+#include "anytime_core/tracing.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 
 namespace anytime_core
 {
 
-template <typename InterfaceType, typename GoalHandleType>
+template<typename InterfaceType, typename GoalHandleType>
 class AnytimeBase
 {
 public:
@@ -29,7 +43,7 @@ public:
 
   // Optional: override to customize the number of batch iterations
   // Default is batch_size_, but YOLO needs to limit by remaining layers
-  virtual int get_batch_iterations() const { return batch_size_; }
+  virtual int get_batch_iterations() const {return batch_size_;}
 
   // Optional: process completed GPU operations (called on executor thread)
   // Override in GPU-accelerated domains to drain async completion signals
@@ -280,11 +294,11 @@ public:
     TRACE_ANYTIME_BASE_DEACTIVATE(node_);
     is_running_.store(false, std::memory_order_seq_cst);
   }
-  bool is_running() const { return is_running_.load(std::memory_order_seq_cst); }
+  bool is_running() const {return is_running_.load(std::memory_order_seq_cst);}
 
   // Goal handle management
-  void set_goal_handle(std::shared_ptr<GoalHandleType> goal_handle) { goal_handle_ = goal_handle; }
-  std::shared_ptr<GoalHandleType> get_goal_handle() { return goal_handle_; }
+  void set_goal_handle(std::shared_ptr<GoalHandleType> goal_handle) {goal_handle_ = goal_handle;}
+  std::shared_ptr<GoalHandleType> get_goal_handle() {return goal_handle_;}
 
   // Waitable notification - single unified waitable
   void notify_waitable()
@@ -296,7 +310,7 @@ public:
 protected:
   // Initialize waitables and callback group
   // Call this from derived class constructor with is_reactive_proactive template parameter
-  template <bool isReactiveProactive>
+  template<bool isReactiveProactive>
   void initialize_anytime_base(rclcpp::Node * node, int batch_size)
   {
     node_ = node;
@@ -315,11 +329,11 @@ protected:
     if constexpr (isReactiveProactive) {
       // Proactive mode
       anytime_waitable_ =
-        std::make_shared<AnytimeWaitable>([this]() { this->proactive_anytime_function(); });
+        std::make_shared<AnytimeWaitable>([this]() {this->proactive_anytime_function();});
     } else {
       // Reactive mode
       anytime_waitable_ =
-        std::make_shared<AnytimeWaitable>([this]() { this->reactive_anytime_function(); });
+        std::make_shared<AnytimeWaitable>([this]() {this->reactive_anytime_function();});
     }
 
     // Add waitable to node
@@ -361,4 +375,4 @@ protected:
 
 }  // namespace anytime_core
 
-#endif  // ANYTIME_CORE_ANYTIME_BASE_HPP
+#endif  // ANYTIME_CORE__ANYTIME_BASE_HPP_

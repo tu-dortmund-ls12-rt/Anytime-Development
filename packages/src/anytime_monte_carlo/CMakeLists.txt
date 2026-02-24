@@ -72,7 +72,7 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS 
+install(TARGETS
   anytime_mc_client_lib
   anytime_mc_server_lib
   EXPORT export_${PROJECT_NAME}

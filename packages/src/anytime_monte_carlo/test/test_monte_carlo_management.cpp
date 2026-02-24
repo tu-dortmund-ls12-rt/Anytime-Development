@@ -5,21 +5,25 @@
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
-
-#include "anytime_monte_carlo/anytime_management.hpp"
-
-#include <gtest/gtest.h>
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp_action/rclcpp_action.hpp>
-
-#include "anytime_interfaces/action/monte_carlo.hpp"
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <cmath>
 #include <cstdlib>
 #include <memory>
 
+#include "anytime_monte_carlo/anytime_management.hpp"
+#include "anytime_interfaces/action/monte_carlo.hpp"
+#include "gtest/gtest.h"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
+
 // Testable subclass that exposes protected members
-template <bool isReactiveProactive>
+template<bool isReactiveProactive>
 class TestableAnytimeManagement : public AnytimeManagement<isReactiveProactive>
 {
 public:
@@ -40,7 +44,7 @@ protected:
     node_ = std::make_shared<rclcpp::Node>("test_mc_node");
   }
 
-  void TearDown() override { rclcpp::shutdown(); }
+  void TearDown() override {rclcpp::shutdown();}
 
   std::shared_ptr<rclcpp::Node> node_;
 };

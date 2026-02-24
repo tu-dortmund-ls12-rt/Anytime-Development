@@ -37,90 +37,96 @@ find_package(anytime_interfaces REQUIRED)
 find_package(anytime_core REQUIRED)
 find_package(anytime_tracing REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(CUDA REQUIRED)
-find_package(nlohmann_json REQUIRED)
-find_package(OpenCV REQUIRED)
-find_package(cv_bridge REQUIRED)
+find_package(CUDA QUIET)
+find_package(nlohmann_json QUIET)
+find_package(OpenCV QUIET)
+find_package(cv_bridge QUIET)
 
-set(TENSORRT_INCLUDE_DIR /usr/include/x86_64-linux-gnu)
-set(TENSORRT_LIB_DIR /usr/lib/x86_64-linux-gnu)
+if(CUDA_FOUND AND nlohmann_json_FOUND AND OpenCV_FOUND AND cv_bridge_FOUND)
+  message(STATUS "CUDA found — building anytime_yolo targets")
 
-include_directories(${TENSORRT_INCLUDE_DIR})
-link_directories(${TENSORRT_LIB_DIR})
-include_directories(include /usr/include/${ARCHITECTURE}-linux-gnu ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
+  set(TENSORRT_INCLUDE_DIR /usr/include/x86_64-linux-gnu)
+  set(TENSORRT_LIB_DIR /usr/lib/x86_64-linux-gnu)
 
-set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "rclcpp_components" "anytime_core" "anytime_tracing" "sensor_msgs" "cv_bridge")
+  include_directories(${TENSORRT_INCLUDE_DIR})
+  link_directories(${TENSORRT_LIB_DIR})
+  include_directories(include /usr/include/${ARCHITECTURE}-linux-gnu ${CUDA_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
-# Add libraries
-add_library(anytime_yolo_client_lib SHARED src/anytime_client.cpp)
-add_library(anytime_yolo_server_lib SHARED src/anytime_server.cpp)
+  set(anytime_dependencies "anytime_interfaces" "rclcpp" "rclcpp_action" "rclcpp_components" "anytime_core" "anytime_tracing" "sensor_msgs" "cv_bridge")
 
-# Include directories
-target_include_directories(anytime_yolo_client_lib PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_include_directories(anytime_yolo_server_lib PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_link_libraries(anytime_yolo_server_lib 
-  nvinfer
-  nvonnxparser
-  ${CUDA_LIBRARIES}
-  ${OpenCV_LIBS}
-)
+  # Add libraries
+  add_library(anytime_yolo_client_lib SHARED src/anytime_client.cpp)
+  add_library(anytime_yolo_server_lib SHARED src/anytime_server.cpp)
 
-# Link dependencies
-ament_target_dependencies(anytime_yolo_client_lib ${anytime_dependencies})
-ament_target_dependencies(anytime_yolo_server_lib ${anytime_dependencies})
+  # Include directories
+  target_include_directories(anytime_yolo_client_lib PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  target_include_directories(anytime_yolo_server_lib PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  target_link_libraries(anytime_yolo_server_lib
+    nvinfer
+    nvonnxparser
+    ${CUDA_LIBRARIES}
+    ${OpenCV_LIBS}
+  )
 
-# Register components
-rclcpp_components_register_node(anytime_yolo_client_lib
-  PLUGIN "AnytimeActionClient"
-  EXECUTABLE anytime_yolo_client_component)
+  # Link dependencies
+  ament_target_dependencies(anytime_yolo_client_lib ${anytime_dependencies})
+  ament_target_dependencies(anytime_yolo_server_lib ${anytime_dependencies})
 
-rclcpp_components_register_node(anytime_yolo_server_lib
-  PLUGIN "AnytimeActionServer"
-  EXECUTABLE anytime_yolo_server_component)
+  # Register components
+  rclcpp_components_register_node(anytime_yolo_client_lib
+    PLUGIN "AnytimeActionClient"
+    EXECUTABLE anytime_yolo_client_component)
 
-# Create executables from main files
-add_executable(anytime_yolo_client src/anytime_client_main.cpp)
-add_executable(anytime_yolo_server src/anytime_server_main.cpp)
+  rclcpp_components_register_node(anytime_yolo_server_lib
+    PLUGIN "AnytimeActionServer"
+    EXECUTABLE anytime_yolo_server_component)
 
-# Link executables with their respective libraries
-target_link_libraries(anytime_yolo_client anytime_yolo_client_lib)
-target_link_libraries(anytime_yolo_server anytime_yolo_server_lib)
+  # Create executables from main files
+  add_executable(anytime_yolo_client src/anytime_client_main.cpp)
+  add_executable(anytime_yolo_server src/anytime_server_main.cpp)
 
-# Install targets
-install(TARGETS
-  anytime_yolo_client_lib
-  anytime_yolo_server_lib
-  anytime_yolo_client
-  anytime_yolo_server
-  EXPORT export_${PROJECT_NAME}
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
+  # Link executables with their respective libraries
+  target_link_libraries(anytime_yolo_client anytime_yolo_client_lib)
+  target_link_libraries(anytime_yolo_server anytime_yolo_server_lib)
 
-install(DIRECTORY include/
-  DESTINATION include
-)
+  # Install targets
+  install(TARGETS
+    anytime_yolo_client_lib
+    anytime_yolo_server_lib
+    anytime_yolo_client
+    anytime_yolo_server
+    EXPORT export_${PROJECT_NAME}
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION lib/${PROJECT_NAME}
+  )
 
-install(DIRECTORY
-  launch
-  config
-  weights_32
-  DESTINATION share/${PROJECT_NAME}
-)
+  install(DIRECTORY include/
+    DESTINATION include
+  )
+
+  install(DIRECTORY
+    launch
+    config
+    weights_32
+    DESTINATION share/${PROJECT_NAME}
+  )
+
+  ament_export_include_directories(include)
+  ament_export_libraries(anytime_yolo_client_lib anytime_yolo_server_lib)
+  ament_export_targets(export_${PROJECT_NAME})
+  ament_export_dependencies(${anytime_dependencies})
+else()
+  message(STATUS "CUDA not found — skipping anytime_yolo targets")
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-ament_export_include_directories(include)
-ament_export_libraries(anytime_yolo_client_lib anytime_yolo_server_lib)
-ament_export_targets(export_${PROJECT_NAME})
-ament_export_dependencies(${anytime_dependencies})
 
 ament_package()

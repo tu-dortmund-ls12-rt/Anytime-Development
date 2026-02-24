@@ -5,16 +5,20 @@
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
-
-#include "anytime_core/anytime_base.hpp"
-
-#include <gtest/gtest.h>
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp_action/rclcpp_action.hpp>
-
-#include "anytime_interfaces/action/monte_carlo.hpp"
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <memory>
+
+#include "anytime_core/anytime_base.hpp"
+#include "anytime_interfaces/action/monte_carlo.hpp"
+#include "gtest/gtest.h"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 
 using Anytime = anytime_interfaces::action::MonteCarlo;
 using GoalHandle = rclcpp_action::ServerGoalHandle<Anytime>;
@@ -27,12 +31,12 @@ public:
   int reset_count = 0;
   bool finish_flag = false;
 
-  MockAnytimeBase(rclcpp::Node * node, int batch_size = 1)
+  explicit MockAnytimeBase(rclcpp::Node * node, int batch_size = 1)
   {
     this->template initialize_anytime_base<false>(node, batch_size);
   }
 
-  void compute_single_iteration() override { compute_count++; }
+  void compute_single_iteration() override {compute_count++;}
 
   void populate_feedback(std::shared_ptr<Anytime::Feedback> feedback) override
   {
@@ -51,7 +55,7 @@ public:
     compute_count = 0;
   }
 
-  bool should_finish() const override { return finish_flag; }
+  bool should_finish() const override {return finish_flag;}
 };
 
 class AnytimeBaseTest : public ::testing::Test
@@ -63,7 +67,7 @@ protected:
     node_ = std::make_shared<rclcpp::Node>("test_node");
   }
 
-  void TearDown() override { rclcpp::shutdown(); }
+  void TearDown() override {rclcpp::shutdown();}
 
   std::shared_ptr<rclcpp::Node> node_;
 };

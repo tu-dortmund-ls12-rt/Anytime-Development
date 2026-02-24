@@ -1,3 +1,17 @@
+# Copyright 2025 Anytime System
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Launch file to start a component container with Monte Carlo client and server components."""
 
 from launch import LaunchDescription
@@ -9,15 +23,20 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def launch_setup(context, *args, **kwargs):
-    """Setup function to print executor type and return container."""
-
+    """Set up function to print executor type and return container."""
     use_multi_threaded = context.launch_configurations.get(
         'use_multi_threaded', 'false')
     container_name = context.launch_configurations.get(
         'container_name', 'monte_carlo_container')
 
-    executor_type = "MULTI-THREADED" if use_multi_threaded == 'true' else "SINGLE-THREADED"
-    executable_name = "component_container_mt" if use_multi_threaded == 'true' else "component_container"
+    executor_type = (
+        "MULTI-THREADED" if use_multi_threaded == 'true'
+        else "SINGLE-THREADED"
+    )
+    executable_name = (
+        "component_container_mt" if use_multi_threaded == 'true'
+        else "component_container"
+    )
 
     print("\n" + "="*80)
     print("Monte Carlo Component Container Launch")
@@ -71,7 +90,6 @@ def launch_setup(context, *args, **kwargs):
 
 def generate_launch_description():
     """Return launch description with component container."""
-
     # Get the package directory
     package_dir = get_package_share_directory('anytime_monte_carlo')
 

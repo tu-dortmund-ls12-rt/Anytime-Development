@@ -1,14 +1,27 @@
-#ifndef ANYTIME_CORE_ANYTIME_CLIENT_BASE_HPP
-#define ANYTIME_CORE_ANYTIME_CLIENT_BASE_HPP
+// Copyright 2025 Anytime System
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "anytime_core/tracing.hpp"
-
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp_action/rclcpp_action.hpp>
+#ifndef ANYTIME_CORE__ANYTIME_CLIENT_BASE_HPP_
+#define ANYTIME_CORE__ANYTIME_CLIENT_BASE_HPP_
 
 #include <functional>
 #include <memory>
 #include <string>
+
+#include "anytime_core/tracing.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 
 namespace anytime_core
 {
@@ -23,7 +36,7 @@ namespace anytime_core
  *
  * @tparam ActionType The ROS2 action type (e.g., anytime_interfaces::action::MonteCarlo)
  */
-template <typename ActionType>
+template<typename ActionType>
 class AnytimeClientBase : public rclcpp::Node
 {
 public:
@@ -124,13 +137,13 @@ protected:
         RCLCPP_ERROR(this->get_logger(), "Goal was aborted");
         break;
       case rclcpp_action::ResultCode::CANCELED: {
-        std::string goal_id_str =
-          goal_handle_ ? rclcpp_action::to_string(goal_handle_->get_goal_id()) : "unknown";
-        RCLCPP_DEBUG(
-          this->get_logger(), "[Goal ID: %s] Goal was canceled", goal_id_str.c_str());
-        post_processing(result);
-        break;
-      }
+          std::string goal_id_str =
+            goal_handle_ ? rclcpp_action::to_string(goal_handle_->get_goal_id()) : "unknown";
+          RCLCPP_DEBUG(
+            this->get_logger(), "[Goal ID: %s] Goal was canceled", goal_id_str.c_str());
+          post_processing(result);
+          break;
+        }
       default:
         RCLCPP_ERROR(this->get_logger(), "Unknown result code");
         break;
@@ -166,8 +179,8 @@ protected:
       };
     send_goal_options.feedback_callback =
       [this](
-        typename AnytimeGoalHandle::SharedPtr goal_handle,
-        const std::shared_ptr<const typename ActionType::Feedback> feedback) {
+      typename AnytimeGoalHandle::SharedPtr goal_handle,
+      const std::shared_ptr<const typename ActionType::Feedback> feedback) {
         this->feedback_callback(goal_handle, feedback);
       };
     send_goal_options.result_callback =
@@ -260,4 +273,4 @@ protected:
 
 }  // namespace anytime_core
 
-#endif  // ANYTIME_CORE_ANYTIME_CLIENT_BASE_HPP
+#endif  // ANYTIME_CORE__ANYTIME_CLIENT_BASE_HPP_

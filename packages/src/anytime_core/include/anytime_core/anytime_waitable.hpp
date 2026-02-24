@@ -1,13 +1,27 @@
-#ifndef ANYTIME_CORE_ANYTIME_WAITABLE_HPP
-#define ANYTIME_CORE_ANYTIME_WAITABLE_HPP
+// Copyright 2025 Anytime System
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "rclcpp/exceptions.hpp"
-#include "rclcpp/guard_condition.hpp"
-#include "rclcpp/waitable.hpp"
+#ifndef ANYTIME_CORE__ANYTIME_WAITABLE_HPP_
+#define ANYTIME_CORE__ANYTIME_WAITABLE_HPP_
 
 #include <functional>
 #include <memory>
 #include <mutex>
+
+#include "rclcpp/exceptions.hpp"
+#include "rclcpp/guard_condition.hpp"
+#include "rclcpp/waitable.hpp"
 
 namespace anytime_core
 {
@@ -75,7 +89,7 @@ public:
   }
 
   /// Retrieve data to be used in the next execute call.
-  std::shared_ptr<void> take_data() override { return nullptr; }
+  std::shared_ptr<void> take_data() override {return nullptr;}
 
   /// Take the data from an entity ID so that it can be consumed with `execute`.
   std::shared_ptr<void> take_data_by_entity_id(size_t id) override
@@ -87,7 +101,7 @@ public:
   /// Set a callback to be called whenever the waitable becomes ready.
   void set_on_ready_callback(std::function<void(size_t, int)> callback) override
   {
-    auto gc_callback = [callback](size_t count) { callback(count, 0); };
+    auto gc_callback = [callback](size_t count) {callback(count, 0);};
 
     std::lock_guard<std::mutex> lock(guard_condition_mutex_);
 
@@ -125,7 +139,7 @@ public:
   }
 
   /// Get the guard condition
-  rclcpp::GuardCondition & get_guard_condition() { return *guard_condition_; }
+  rclcpp::GuardCondition & get_guard_condition() {return *guard_condition_;}
 
 private:
   /// Callback to run when waitable executes
@@ -141,4 +155,4 @@ private:
 
 }  // namespace anytime_core
 
-#endif  // ANYTIME_CORE_ANYTIME_WAITABLE_HPP
+#endif  // ANYTIME_CORE__ANYTIME_WAITABLE_HPP_

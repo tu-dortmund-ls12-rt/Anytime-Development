@@ -5,20 +5,25 @@
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
-
-#include "anytime_core/anytime_waitable.hpp"
-
-#include <gtest/gtest.h>
-#include <rclcpp/rclcpp.hpp>
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <functional>
 #include <memory>
 
+#include "anytime_core/anytime_waitable.hpp"
+#include "gtest/gtest.h"
+#include "rclcpp/rclcpp.hpp"
+
 class RclcppEnvironment : public ::testing::Environment
 {
 public:
-  void SetUp() override { rclcpp::init(0, nullptr); }
-  void TearDown() override { rclcpp::shutdown(); }
+  void SetUp() override {rclcpp::init(0, nullptr);}
+  void TearDown() override {rclcpp::shutdown();}
 };
 
 testing::Environment * const rclcpp_env =
@@ -28,7 +33,7 @@ TEST(AnytimeWaitable, ConstructWithCallback)
 {
   int call_count = 0;
   auto waitable = std::make_shared<anytime_core::AnytimeWaitable>(
-    [&call_count]() { call_count++; });
+    [&call_count]() {call_count++;});
 
   // execute() should invoke the callback
   std::shared_ptr<void> data = nullptr;
