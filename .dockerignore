@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+packages/build/
+packages/install/
+packages/log/
+
+# Experiment data (large traces and results)
+experiments/*/traces/
+experiments/*/results/
+experiments/*/plots/
+experiments/*/configs/
+
+# IDE / editor
+.vscode/
+**/.cache/
+**/compile_commands.json
+
+# TensorRT engines (large binary files)
+*.engine
+
+# YOLO weights (large binary files)
+packages/src/anytime_yolo/weights_32/*.onnx
+packages/src/anytime_yolo/weights_32/model.json
+packages/src/video_publisher/images/image_*.jpg
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Docker (prevent recursive context)
+docker-compose.yml
+.dockerignore

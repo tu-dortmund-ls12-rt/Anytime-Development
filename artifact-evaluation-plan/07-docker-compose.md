@@ -1,6 +1,6 @@
 # Step 7: docker-compose.yml
 
-**Status:** Pending
+**Status:** Completed
 **Day:** 2 (Wed Feb 25)
 **Priority:** MEDIUM
 **Time:** ~0.5h
