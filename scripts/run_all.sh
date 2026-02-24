@@ -14,7 +14,18 @@
 #   --monte-carlo     Run Monte Carlo experiments
 #   --interference    Run Interference experiments
 #   --yolo            Run YOLO experiments
-#   --no-smoke-test   Skip the smoke test
+#
+# Skip steps:
+#   --no-smoke-test       Skip the smoke test
+#   --no-prerequisites    Skip YOLO prerequisite checks (weights + images)
+#   --no-build            Skip workspace build (smoke test includes build)
+#   --no-figures          Skip paper figure collection
+#
+# Run individual steps only:
+#   --only-smoke-test     Run only the smoke test
+#   --only-prerequisites  Run only the YOLO prerequisite check
+#   --only-build          Run only the workspace build
+#   --only-figures        Run only paper figure collection
 #
 # If none of --monte-carlo, --interference, --yolo, --cpu-only, --gpu-only
 # are specified, all experiments are run.
@@ -31,12 +42,13 @@ set -e
 cleanup() {
     echo ""
     echo "Interrupted — cleaning up..."
-    lttng stop 2>/dev/null || true
-    lttng destroy 2>/dev/null || true
     pkill -9 -f 'component_container' 2>/dev/null || true
     pkill -9 -f 'anytime_monte_carlo' 2>/dev/null || true
     pkill -9 -f 'interference_timer' 2>/dev/null || true
     pkill -9 -f 'ros2' 2>/dev/null || true
+    sleep 1
+    lttng stop 2>/dev/null || true
+    lttng destroy 2>/dev/null || true
 }
 trap cleanup INT TERM
 
@@ -52,6 +64,13 @@ RUN_MC=false
 RUN_IF=false
 RUN_YOLO=false
 NO_SMOKE=false
+NO_PREREQS=false
+NO_BUILD=false
+NO_FIGURES=false
+ONLY_SMOKE=false
+ONLY_PREREQS=false
+ONLY_BUILD=false
+ONLY_FIGURES=false
 EXPLICIT_SELECTION=false
 
 for arg in "$@"; do
@@ -64,20 +83,38 @@ for arg in "$@"; do
         --interference) RUN_IF=true; EXPLICIT_SELECTION=true ;;
         --yolo) RUN_YOLO=true; EXPLICIT_SELECTION=true ;;
         --no-smoke-test) NO_SMOKE=true ;;
+        --no-prerequisites) NO_PREREQS=true ;;
+        --no-build) NO_BUILD=true ;;
+        --no-figures) NO_FIGURES=true ;;
+        --only-smoke-test) ONLY_SMOKE=true ;;
+        --only-prerequisites) ONLY_PREREQS=true ;;
+        --only-build) ONLY_BUILD=true ;;
+        --only-figures) ONLY_FIGURES=true ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Mode flags:"
-            echo "  --quick           Quick experiments (3 batch sizes, 5s) [default]"
-            echo "  --full            Full experiments (7 batch sizes, 10s)"
+            echo "  --quick               Quick experiments (3 batch sizes, 5s) [default]"
+            echo "  --full                Full experiments (7 batch sizes, 10s)"
             echo ""
             echo "Experiment selection:"
-            echo "  --cpu-only        Run only CPU experiments (Monte Carlo + Interference)"
-            echo "  --gpu-only        Run only GPU experiments (YOLO)"
-            echo "  --monte-carlo     Run Monte Carlo experiments"
-            echo "  --interference    Run Interference experiments"
-            echo "  --yolo            Run YOLO experiments"
-            echo "  --no-smoke-test   Skip the smoke test"
+            echo "  --cpu-only            Run only CPU experiments (Monte Carlo + Interference)"
+            echo "  --gpu-only            Run only GPU experiments (YOLO)"
+            echo "  --monte-carlo         Run Monte Carlo experiments"
+            echo "  --interference        Run Interference experiments"
+            echo "  --yolo                Run YOLO experiments"
+            echo ""
+            echo "Skip steps:"
+            echo "  --no-smoke-test       Skip the smoke test"
+            echo "  --no-prerequisites    Skip YOLO prerequisite checks"
+            echo "  --no-build            Skip workspace build"
+            echo "  --no-figures          Skip paper figure collection"
+            echo ""
+            echo "Run individual steps only:"
+            echo "  --only-smoke-test     Run only the smoke test"
+            echo "  --only-prerequisites  Run only the YOLO prerequisite check"
+            echo "  --only-build          Run only the workspace build"
+            echo "  --only-figures        Run only paper figure collection"
             echo ""
             echo "If no experiment flags are given, all experiments are run."
             echo "Flags can be combined: --monte-carlo --interference"
@@ -96,6 +133,32 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# ─────────────────────────────────────────────
+# Handle --only-* flags (run single step and exit)
+# ─────────────────────────────────────────────
+if [ "${ONLY_BUILD}" = true ]; then
+    echo "Building workspace..."
+    cd "${PACKAGES_DIR}"
+    colcon build --symlink-install
+    echo "Build complete."
+    exit 0
+fi
+
+if [ "${ONLY_PREREQS}" = true ]; then
+    "${SCRIPT_DIR}/check_yolo_prerequisites.sh"
+    exit 0
+fi
+
+if [ "${ONLY_SMOKE}" = true ]; then
+    "${SCRIPT_DIR}/smoke_test.sh"
+    exit 0
+fi
+
+if [ "${ONLY_FIGURES}" = true ]; then
+    "${SCRIPT_DIR}/collect_figures.sh"
+    exit 0
+fi
 
 # Validate mutually exclusive flags
 if [ "${CPU_ONLY}" = true ] && [ "${GPU_ONLY}" = true ]; then
@@ -139,6 +202,9 @@ echo "Monte Carlo:   ${RUN_MC}"
 echo "Interference:  ${RUN_IF}"
 echo "YOLO:          ${RUN_YOLO}"
 echo "Smoke test:    $([ "${NO_SMOKE}" = true ] && echo "skip" || echo "yes")"
+echo "Prerequisites: $([ "${NO_PREREQS}" = true ] && echo "skip" || echo "yes")"
+echo "Build:         $([ "${NO_BUILD}" = true ] && echo "skip" || echo "yes")"
+echo "Figures:       $([ "${NO_FIGURES}" = true ] && echo "skip" || echo "yes")"
 echo "GPU detected:  ${HAS_GPU}"
 echo "Workspace:     ${WORKSPACE_DIR}"
 echo ""
@@ -225,10 +291,15 @@ if [ "${RUN_YOLO}" = true ]; then
         echo "-----------------------------------------"
 
         # Check YOLO prerequisites (weights + images)
-        if ! "${SCRIPT_DIR}/check_yolo_prerequisites.sh"; then
+        if [ "${NO_PREREQS}" = true ]; then
+            echo "  Skipping prerequisite check (--no-prerequisites)"
+        elif ! "${SCRIPT_DIR}/check_yolo_prerequisites.sh"; then
             echo "  FAILED: YOLO experiments (missing prerequisites)"
             failed=$((failed + 1))
-        else
+        fi
+
+        # Only proceed if we haven't already failed
+        if [ "${failed}" -eq 0 ] || [ "${NO_PREREQS}" = true ]; then
 
         cd "${PACKAGES_DIR}"
         source install/setup.bash
@@ -286,7 +357,7 @@ if [ "${RUN_YOLO}" = true ]; then
             failed=$((failed + 1))
         fi
 
-        fi  # end prerequisite check
+        fi  # end prerequisite/proceed check
     fi
 else
     skip_phase "YOLO experiments" "not selected"
@@ -295,11 +366,15 @@ fi
 # ─────────────────────────────────────────────
 # Collect paper figures
 # ─────────────────────────────────────────────
-echo ""
-echo "-----------------------------------------"
-echo "Collecting paper figures..."
-echo "-----------------------------------------"
-"${SCRIPT_DIR}/collect_figures.sh"
+if [ "${NO_FIGURES}" = true ]; then
+    skip_phase "Collect paper figures" "--no-figures flag set"
+else
+    echo ""
+    echo "-----------------------------------------"
+    echo "Collecting paper figures..."
+    echo "-----------------------------------------"
+    "${SCRIPT_DIR}/collect_figures.sh"
+fi
 
 # ─────────────────────────────────────────────
 # Summary

@@ -62,6 +62,10 @@ echo ""
 echo -e "${BLUE}Sourcing ROS2 environment...${NC}"
 source "${WORKSPACE_DIR}/packages/install/setup.bash"
 
+# Pre-build TensorRT engines (skip if already cached)
+echo -e "${BLUE}Warming up TensorRT engines...${NC}"
+"${WORKSPACE_DIR}/scripts/warmup_yolo_engines.sh"
+
 # Results summary
 RESULTS_FILE="${EXPERIMENT_DIR}/results/phase4_experiment_summary.txt"
 mkdir -p "${EXPERIMENT_DIR}/results"
@@ -173,27 +177,27 @@ for block_size in "${BLOCK_SIZES[@]}"; do
                     
                     echo -e "${BLUE}Processing completed, cleaning up...${NC}"
                     
-                    # Stop trace
-                    echo -e "${BLUE}Stopping trace session...${NC}"
-                    lttng stop
-                    lttng destroy
-                    
-                    # Kill background processes
+                    # Kill background processes first (before LTTng teardown to avoid destroy hang)
                     echo -e "${BLUE}Stopping background processes...${NC}"
                     kill ${VIDEO_PUB_PID} 2>/dev/null || true
                     kill ${YOLO_PID} 2>/dev/null || true
-                    
+
                     # Wait for processes to stop
                     sleep 2
-                    
+
                     # Force kill if still running
                     kill -9 ${VIDEO_PUB_PID} 2>/dev/null || true
                     kill -9 ${YOLO_PID} 2>/dev/null || true
-                    
+
                     # Kill any remaining YOLO processes
                     pkill -9 -f 'component_container' 2>/dev/null || true
                     pkill -9 -f 'anytime_yolo' 2>/dev/null || true
                     pkill -9 -f 'video_publisher' 2>/dev/null || true
+
+                    # Stop trace
+                    echo -e "${BLUE}Stopping trace session...${NC}"
+                    lttng stop
+                    lttng destroy
                     pkill -9 -f 'ros2' 2>/dev/null || true
                     
                     echo -e "${GREEN}Trial ${trial} complete!${NC}"

@@ -9,11 +9,12 @@ set -e
 cleanup() {
     echo ""
     echo "Interrupted — cleaning up..."
-    lttng stop 2>/dev/null || true
-    lttng destroy smoke_test 2>/dev/null || true
     pkill -9 -f 'component_container' 2>/dev/null || true
     pkill -9 -f 'anytime_monte_carlo' 2>/dev/null || true
     pkill -9 -f 'ros2' 2>/dev/null || true
+    sleep 1
+    lttng stop 2>/dev/null || true
+    lttng destroy smoke_test 2>/dev/null || true
 }
 trap cleanup INT TERM
 

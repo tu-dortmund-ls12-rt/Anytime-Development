@@ -15,6 +15,7 @@
 #include <mutex>
 #include <ratio>
 #include <string>
+#include <optional>
 #include <variant>
 #include <vector>
 

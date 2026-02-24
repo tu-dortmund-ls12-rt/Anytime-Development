@@ -93,12 +93,21 @@ if(CUDA_FOUND AND nlohmann_json_FOUND AND OpenCV_FOUND AND cv_bridge_FOUND)
   target_link_libraries(anytime_yolo_client anytime_yolo_client_lib)
   target_link_libraries(anytime_yolo_server anytime_yolo_server_lib)
 
+  # Warmup utility — pre-builds all TensorRT engines (no ROS deps)
+  add_executable(warmup_engines src/warmup_engines.cpp)
+  target_include_directories(warmup_engines PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CUDA_INCLUDE_DIRS}
+    /usr/include/${ARCHITECTURE}-linux-gnu)
+  target_link_libraries(warmup_engines nvinfer nvonnxparser ${CUDA_LIBRARIES} ${OpenCV_LIBS})
+
   # Install targets
   install(TARGETS
     anytime_yolo_client_lib
     anytime_yolo_server_lib
     anytime_yolo_client
     anytime_yolo_server
+    warmup_engines
     EXPORT export_${PROJECT_NAME}
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib

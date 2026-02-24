@@ -67,12 +67,7 @@ VIDEO_PUB_PID=$!
 echo -e "${BLUE}Processing images...${NC}"
 sleep 10
 
-# Stop trace
-echo -e "${BLUE}Stopping trace...${NC}"
-lttng stop
-lttng destroy
-
-# Clean up
+# Clean up processes first (before LTTng teardown to avoid destroy hang)
 kill ${VIDEO_PUB_PID} 2>/dev/null || true
 kill ${YOLO_PID} 2>/dev/null || true
 sleep 2
@@ -84,6 +79,11 @@ pkill -9 -f 'component_container' 2>/dev/null || true
 pkill -9 -f 'anytime_yolo' 2>/dev/null || true
 pkill -9 -f 'video_publisher' 2>/dev/null || true
 pkill -9 -f 'ros2' 2>/dev/null || true
+
+# Stop trace
+echo -e "${BLUE}Stopping trace...${NC}"
+lttng stop
+lttng destroy
 
 # Verify tracepoints
 echo ""
