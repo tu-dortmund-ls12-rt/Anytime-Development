@@ -2,6 +2,9 @@
 
 ROS 2 implementation of anytime algorithms for timely task completion in non-preemptive robotic systems.
 
+**Authors:** Harun Teper, Daniel Kuhse, Yun-Chih Chen, Georg von der Brüggen, Zhishan Guo, Jian-Jia Chen
+**Contact:** harun.teper (at) tu-dortmund.de
+
 > **Artifact Evaluation:** See [`ARTIFACT_EVALUATION.md`](ARTIFACT_EVALUATION.md) for step-by-step instructions to reproduce all paper figures and tables. The accepted paper is included as [`main.pdf`](main.pdf).
 
 ## Quick Start
@@ -165,7 +168,7 @@ Anytime-Development/
 ```bibtex
 @inproceedings{teper2026anytime,
   title     = {Anytime {ROS} 2: Timely Task Completion in Non-Preemptive Robotic Systems},
-  author    = {Teper, Harun},
+  author    = {Teper, Harun and Kuhse, Daniel and Chen, Yun-Chih and von der Br{\"u}ggen, Georg and Guo, Zhishan and Chen, Jian-Jia},
   booktitle = {IEEE Real-Time and Embedded Technology and Applications Symposium (RTAS)},
   year      = {2026}
 }

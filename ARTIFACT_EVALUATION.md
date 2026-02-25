@@ -1,7 +1,8 @@
 # Artifact Evaluation Guide
 
 **Paper:** Anytime ROS 2: Timely Task Completion in Non-Preemptive Robotic Systems
-**Authors:** Harun Teper, TU Dortmund University
+**Authors:** Harun Teper, Daniel Kuhse, Yun-Chih Chen, Georg von der Brüggen, Zhishan Guo, Jian-Jia Chen
+**Contact:** harun.teper (at) tu-dortmund.de
 **Venue:** RTAS 2026
 **Paper PDF:** [`main.pdf`](main.pdf) (included in repository root)
 
