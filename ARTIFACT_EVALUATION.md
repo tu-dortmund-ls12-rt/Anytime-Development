@@ -232,6 +232,20 @@ You can also re-collect figures at any time by running:
 ./scripts/collect_figures.sh
 ```
 
+### Cleanup
+
+To re-run experiments from a clean state, use the cleanup flags:
+
+```bash
+# Remove experiment outputs (traces, results, configs, paper figures, evaluation logs)
+./scripts/run_all.sh --clean
+
+# Remove everything above, plus build artifacts, YOLO weights, and video frames
+./scripts/run_all.sh --clean-all
+```
+
+Both flags show what will be removed and ask for confirmation before proceeding.
+
 ### Detailed output locations
 
 The full experiment results (including additional diagnostic plots and raw data) remain in their respective experiment directories:
@@ -244,7 +258,7 @@ The full experiment results (including additional diagnostic plots and raw data)
 | Figure 6b | `experiments/interference/results/plots/timer_period_vs_batch_size.pdf` |
 | Figure 7a | `experiments/yolo/results/quality_analysis/quality_ratio_progression.pdf` |
 | Figure 7b | `experiments/yolo/results/phase4_analysis/total_runtime_comparison.pdf` |
-| Table I (CSV) | `experiments/interference/results/aggregated_results.csv` |
+| Table I (CSV) | `experiments/interference/results/table_1_missed_periods.csv` |
 
 ### Additional diagnostic plots
 

@@ -37,3 +37,6 @@ credentials*
 # Generated paper figures
 paper_figures/
 
+# Evaluation run logs
+eval_output/
+

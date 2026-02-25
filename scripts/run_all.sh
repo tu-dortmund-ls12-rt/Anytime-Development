@@ -27,6 +27,10 @@
 #   --only-build          Run only the workspace build
 #   --only-figures        Run only paper figure collection
 #
+# Cleanup:
+#   --clean               Remove experiment outputs (traces, results, configs, figures, logs)
+#   --clean-all           Remove everything --clean does, plus build artifacts and weights
+#
 # If none of --monte-carlo, --interference, --yolo, --cpu-only, --gpu-only
 # are specified, all experiments are run.
 #
@@ -37,11 +41,15 @@
 #   --full                 ~5+ hours (all experiments)
 
 set -e
+export PYTHONUNBUFFERED=1
 
 # Cleanup on interrupt
 cleanup() {
     echo ""
-    echo "Interrupted — cleaning up..."
+    echo "Interrupted -- cleaning up..."
+    if [ -n "${OUTPUT_DIR:-}" ] && [ -f "${TIMING_CSV:-}" ]; then
+        echo "INTERRUPTED,Cleanup,INTERRUPTED,$(date +%s),$(date +%s),0" >> "${TIMING_CSV}"
+    fi
     lttng stop 2>/dev/null || true
     pkill -9 -f 'component_container' 2>/dev/null || true
     pkill -9 -f 'anytime_monte_carlo' 2>/dev/null || true
@@ -71,6 +79,8 @@ ONLY_SMOKE=false
 ONLY_PREREQS=false
 ONLY_BUILD=false
 ONLY_FIGURES=false
+DO_CLEAN=false
+DO_CLEAN_ALL=false
 EXPLICIT_SELECTION=false
 
 for arg in "$@"; do
@@ -90,6 +100,8 @@ for arg in "$@"; do
         --only-prerequisites) ONLY_PREREQS=true ;;
         --only-build) ONLY_BUILD=true ;;
         --only-figures) ONLY_FIGURES=true ;;
+        --clean) DO_CLEAN=true ;;
+        --clean-all) DO_CLEAN_ALL=true ;;
         --help|-h)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -116,6 +128,12 @@ for arg in "$@"; do
             echo "  --only-build          Run only the workspace build"
             echo "  --only-figures        Run only paper figure collection"
             echo ""
+            echo "Cleanup:"
+            echo "  --clean               Remove experiment outputs (traces, results, configs,"
+            echo "                        paper figures, evaluation logs)"
+            echo "  --clean-all           Remove everything --clean does, plus build artifacts,"
+            echo "                        YOLO weights, video frames, and __pycache__"
+            echo ""
             echo "If no experiment flags are given, all experiments are run."
             echo "Flags can be combined: --monte-carlo --interference"
             echo ""
@@ -133,6 +151,116 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# ─────────────────────────────────────────────
+# Handle --clean / --clean-all (run and exit)
+# ─────────────────────────────────────────────
+if [ "${DO_CLEAN}" = true ] || [ "${DO_CLEAN_ALL}" = true ]; then
+    echo "The following will be removed:"
+    echo ""
+
+    # Experiment outputs (always)
+    echo "  Experiment outputs:"
+    for exp in monte_carlo interference yolo; do
+        for sub in traces results configs; do
+            dir="${WORKSPACE_DIR}/experiments/${exp}/${sub}"
+            if [ -d "${dir}" ]; then
+                echo "    ${dir}/"
+            fi
+        done
+    done
+
+    if [ -d "${WORKSPACE_DIR}/paper_figures" ]; then
+        echo "    ${WORKSPACE_DIR}/paper_figures/"
+    fi
+    if [ -d "${WORKSPACE_DIR}/eval_output" ]; then
+        echo "    ${WORKSPACE_DIR}/eval_output/"
+    fi
+
+    if [ "${DO_CLEAN_ALL}" = true ]; then
+        echo ""
+        echo "  Build artifacts:"
+        for sub in build install log; do
+            dir="${PACKAGES_DIR}/${sub}"
+            if [ -d "${dir}" ]; then
+                echo "    ${dir}/"
+            fi
+        done
+
+        echo ""
+        echo "  YOLO weights and video frames:"
+        weights_dir="${PACKAGES_DIR}/src/anytime_yolo/weights_32"
+        if ls "${weights_dir}"/*.onnx 2>/dev/null | head -1 >/dev/null 2>&1 || [ -f "${weights_dir}/model.json" ]; then
+            echo "    ${weights_dir}/*.onnx, model.json"
+        fi
+        images_dir="${PACKAGES_DIR}/src/video_publisher/images"
+        if ls "${images_dir}"/image_*.jpg 2>/dev/null | head -1 >/dev/null 2>&1; then
+            echo "    ${images_dir}/image_*.jpg"
+        fi
+
+        echo ""
+        echo "  Python caches:"
+        pycache_count=$(find "${WORKSPACE_DIR}" -type d -name "__pycache__" 2>/dev/null | wc -l)
+        if [ "${pycache_count}" -gt 0 ]; then
+            echo "    ${pycache_count} __pycache__ directories"
+        fi
+    fi
+
+    echo ""
+    read -r -p "Proceed? [y/N] " confirm
+    if [ "${confirm}" != "y" ] && [ "${confirm}" != "Y" ]; then
+        echo "Aborted."
+        exit 0
+    fi
+
+    echo ""
+
+    # Remove experiment outputs
+    for exp in monte_carlo interference yolo; do
+        for sub in traces results configs; do
+            dir="${WORKSPACE_DIR}/experiments/${exp}/${sub}"
+            if [ -d "${dir}" ]; then
+                rm -rf "${dir}"
+                echo "  Removed ${dir}/"
+            fi
+        done
+    done
+    if [ -d "${WORKSPACE_DIR}/paper_figures" ]; then
+        rm -rf "${WORKSPACE_DIR}/paper_figures"
+        echo "  Removed paper_figures/"
+    fi
+    if [ -d "${WORKSPACE_DIR}/eval_output" ]; then
+        rm -rf "${WORKSPACE_DIR}/eval_output"
+        echo "  Removed eval_output/"
+    fi
+
+    if [ "${DO_CLEAN_ALL}" = true ]; then
+        for sub in build install log; do
+            dir="${PACKAGES_DIR}/${sub}"
+            if [ -d "${dir}" ]; then
+                rm -rf "${dir}"
+                echo "  Removed ${dir}/"
+            fi
+        done
+
+        weights_dir="${PACKAGES_DIR}/src/anytime_yolo/weights_32"
+        rm -f "${weights_dir}"/layer_*.onnx "${weights_dir}"/exit_*.onnx \
+              "${weights_dir}"/nms.onnx "${weights_dir}"/model.json \
+              "${weights_dir}"/combine_subheads_*.onnx "${weights_dir}"/subexit_*.onnx
+        echo "  Removed YOLO weight files"
+
+        images_dir="${PACKAGES_DIR}/src/video_publisher/images"
+        rm -f "${images_dir}"/image_*.jpg
+        echo "  Removed video frames"
+
+        find "${WORKSPACE_DIR}" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        echo "  Removed __pycache__ directories"
+    fi
+
+    echo ""
+    echo "Cleanup complete."
+    exit 0
+fi
 
 # ─────────────────────────────────────────────
 # Handle --only-* flags (run single step and exit)
@@ -193,8 +321,25 @@ if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null 2>&1; then
     HAS_GPU=true
 fi
 
+# ─────────────────────────────────────────────
+# Output directory and timing setup
+# ─────────────────────────────────────────────
+RUN_TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+OUTPUT_DIR="${WORKSPACE_DIR}/eval_output/run_${RUN_TIMESTAMP}"
+mkdir -p "${OUTPUT_DIR}"
+
+TIMING_CSV="${OUTPUT_DIR}/timing.csv"
+echo "phase_num,phase_name,status,start_epoch,end_epoch,duration_seconds" > "${TIMING_CSV}"
+
+OVERALL_START=$(date +%s)
+
+declare -a PHASE_NAMES=()
+declare -a PHASE_STATUSES=()
+declare -a PHASE_DURATIONS=()
+PHASE_COUNTER=0
+
 echo "========================================="
-echo "Anytime ROS 2 — Artifact Evaluation"
+echo "Anytime ROS 2 -- Artifact Evaluation"
 echo "========================================="
 echo ""
 echo "Mode:          ${MODE}"
@@ -207,36 +352,131 @@ echo "Build:         $([ "${NO_BUILD}" = true ] && echo "skip" || echo "yes")"
 echo "Figures:       $([ "${NO_FIGURES}" = true ] && echo "skip" || echo "yes")"
 echo "GPU detected:  ${HAS_GPU}"
 echo "Workspace:     ${WORKSPACE_DIR}"
+echo "Output dir:    ${OUTPUT_DIR}"
 echo ""
 
 passed=0
 failed=0
 skipped=0
 
+# ─────────────────────────────────────────────
+# Helper functions
+# ─────────────────────────────────────────────
+format_duration() {
+    local total_seconds=$1
+    local hours=$((total_seconds / 3600))
+    local minutes=$(( (total_seconds % 3600) / 60 ))
+    local seconds=$((total_seconds % 60))
+    printf "%02d:%02d:%02d" ${hours} ${minutes} ${seconds}
+}
+
+record_timing() {
+    local phase_num="$1"
+    local phase_name="$2"
+    local status="$3"
+    local start_epoch="$4"
+    local end_epoch="$5"
+    local duration=$((end_epoch - start_epoch))
+
+    echo "${phase_num},${phase_name},${status},${start_epoch},${end_epoch},${duration}" >> "${TIMING_CSV}"
+
+    PHASE_NAMES+=("${phase_name}")
+    PHASE_STATUSES+=("${status}")
+    PHASE_DURATIONS+=("${duration}")
+}
+
 run_phase() {
     local name="$1"
     local cmd="$2"
+    PHASE_COUNTER=$((PHASE_COUNTER + 1))
+    local phase_num
+    phase_num=$(printf "%02d" ${PHASE_COUNTER})
+
+    local log_name
+    log_name=$(echo "${name}" | tr '[:upper:]' '[:lower:]' | tr ' ' '_' | tr -cd 'a-z0-9_')
+    local log_file="${OUTPUT_DIR}/${phase_num}_${log_name}.log"
+
     echo ""
     echo "-----------------------------------------"
     echo "Phase: ${name}"
     echo "-----------------------------------------"
-    if eval "${cmd}"; then
-        echo "  PASSED: ${name}"
+    echo "  Log: ${log_file}"
+
+    local start_epoch
+    start_epoch=$(date +%s)
+
+    local exit_code=0
+    set +e
+    ( eval "${cmd}" ) 2>&1 | tee "${log_file}"
+    exit_code=${PIPESTATUS[0]}
+    set -e
+
+    local end_epoch
+    end_epoch=$(date +%s)
+    local duration=$((end_epoch - start_epoch))
+
+    if [ ${exit_code} -eq 0 ]; then
+        echo "  PASSED: ${name} ($(format_duration ${duration}))"
         passed=$((passed + 1))
+        record_timing "${phase_num}" "${name}" "PASSED" "${start_epoch}" "${end_epoch}"
     else
-        echo "  FAILED: ${name}"
+        echo "  FAILED: ${name} ($(format_duration ${duration}))"
         failed=$((failed + 1))
+        record_timing "${phase_num}" "${name}" "FAILED" "${start_epoch}" "${end_epoch}"
     fi
 }
 
 skip_phase() {
     local name="$1"
     local reason="$2"
+    PHASE_COUNTER=$((PHASE_COUNTER + 1))
+    local phase_num
+    phase_num=$(printf "%02d" ${PHASE_COUNTER})
+
     echo ""
     echo "-----------------------------------------"
-    echo "Phase: ${name} — SKIPPED (${reason})"
+    echo "Phase: ${name} -- SKIPPED (${reason})"
     echo "-----------------------------------------"
     skipped=$((skipped + 1))
+
+    local now
+    now=$(date +%s)
+    record_timing "${phase_num}" "${name}" "SKIPPED" "${now}" "${now}"
+}
+
+# Run a YOLO sub-step with timing and log capture
+run_yolo_step() {
+    local step_label="$1"
+    local description="$2"
+    local cmd="$3"
+
+    local log_file="${OUTPUT_DIR}/04_yolo_${step_label}.log"
+
+    echo "  ${description}..."
+    echo "    Log: ${log_file}"
+
+    local start_epoch
+    start_epoch=$(date +%s)
+
+    local exit_code=0
+    set +e
+    ( eval "${cmd}" ) 2>&1 | tee "${log_file}"
+    exit_code=${PIPESTATUS[0]}
+    set -e
+
+    local end_epoch
+    end_epoch=$(date +%s)
+    local duration=$((end_epoch - start_epoch))
+
+    local status="PASSED"
+    if [ ${exit_code} -ne 0 ]; then
+        status="FAILED"
+    fi
+    record_timing "04" "YOLO ${description}" "${status}" "${start_epoch}" "${end_epoch}"
+
+    echo "    Elapsed: $(format_duration ${duration})"
+
+    return ${exit_code}
 }
 
 # ─────────────────────────────────────────────
@@ -284,20 +524,26 @@ if [ "${RUN_YOLO}" = true ]; then
         skip_phase "YOLO experiments" "quick mode (YOLO requires --full)"
     else
         YOLO_DIR="${WORKSPACE_DIR}/experiments/yolo"
+        PHASE_COUNTER=$((PHASE_COUNTER + 1))
 
         echo ""
         echo "-----------------------------------------"
         echo "Phase: YOLO experiments (full pipeline)"
         echo "-----------------------------------------"
 
+        yolo_phase_start=$(date +%s)
+
         # Check YOLO prerequisites (weights + images)
         yolo_prereqs_ok=true
         if [ "${NO_PREREQS}" = true ]; then
             echo "  Skipping prerequisite check (--no-prerequisites)"
-        elif ! "${SCRIPT_DIR}/check_yolo_prerequisites.sh"; then
-            echo "  FAILED: YOLO experiments (missing prerequisites)"
-            failed=$((failed + 1))
-            yolo_prereqs_ok=false
+        else
+            run_yolo_step "prerequisites" "Checking prerequisites" \
+                "'${SCRIPT_DIR}/check_yolo_prerequisites.sh'" || {
+                echo "  FAILED: YOLO experiments (missing prerequisites)"
+                failed=$((failed + 1))
+                yolo_prereqs_ok=false
+            }
         fi
 
         # Only proceed if prerequisites passed
@@ -308,54 +554,57 @@ if [ "${RUN_YOLO}" = true ]; then
 
         yolo_failed=false
 
-        echo "  Step 0: Generating baseline configs..."
-        python3 "${YOLO_DIR}/0_generate_baseline_configs.py" || yolo_failed=true
+        run_yolo_step "step0_generate_baseline_configs" "Step 0: Generating baseline configs" \
+            "python3 '${YOLO_DIR}/0_generate_baseline_configs.py'" || yolo_failed=true
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 1: Collecting baseline data..."
-            "${YOLO_DIR}/1_collect_baseline.sh" || yolo_failed=true
+            run_yolo_step "step1_collect_baseline" "Step 1: Collecting baseline data" \
+                "'${YOLO_DIR}/1_collect_baseline.sh'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 2a: Analyzing quality..."
-            python3 "${YOLO_DIR}/2a_analyze_quality.py" || yolo_failed=true
+            run_yolo_step "step2a_analyze_quality" "Step 2a: Analyzing quality" \
+                "python3 '${YOLO_DIR}/2a_analyze_quality.py'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 2b: Analyzing block sizes..."
-            python3 "${YOLO_DIR}/2b_analyze_blocks.py" || yolo_failed=true
+            run_yolo_step "step2b_analyze_blocks" "Step 2b: Analyzing block sizes" \
+                "python3 '${YOLO_DIR}/2b_analyze_blocks.py'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 3: Measuring throughput..."
-            "${YOLO_DIR}/3_measure_throughput.sh" || yolo_failed=true
+            run_yolo_step "step3_measure_throughput" "Step 3: Measuring throughput" \
+                "'${YOLO_DIR}/3_measure_throughput.sh'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 4: Analyzing throughput..."
-            python3 "${YOLO_DIR}/4_analyze_throughput.py" || yolo_failed=true
+            run_yolo_step "step4_analyze_throughput" "Step 4: Analyzing throughput" \
+                "python3 '${YOLO_DIR}/4_analyze_throughput.py'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 5: Generating cancellation configs..."
-            python3 "${YOLO_DIR}/5_generate_configs.py" || yolo_failed=true
+            run_yolo_step "step5_generate_configs" "Step 5: Generating cancellation configs" \
+                "python3 '${YOLO_DIR}/5_generate_configs.py'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 6: Running cancellation experiments..."
-            "${YOLO_DIR}/6_run_experiments.sh" || yolo_failed=true
+            run_yolo_step "step6_run_experiments" "Step 6: Running cancellation experiments" \
+                "'${YOLO_DIR}/6_run_experiments.sh'" || yolo_failed=true
         fi
 
         if [ "${yolo_failed}" = false ]; then
-            echo "  Step 7: Analyzing cancellation..."
-            python3 "${YOLO_DIR}/7_analyze_cancellation.py" || yolo_failed=true
+            run_yolo_step "step7_analyze_cancellation" "Step 7: Analyzing cancellation" \
+                "python3 '${YOLO_DIR}/7_analyze_cancellation.py'" || yolo_failed=true
         fi
 
+        yolo_phase_end=$(date +%s)
+        yolo_duration=$((yolo_phase_end - yolo_phase_start))
+
         if [ "${yolo_failed}" = false ]; then
-            echo "  PASSED: YOLO experiments"
+            echo "  PASSED: YOLO experiments ($(format_duration ${yolo_duration}))"
             passed=$((passed + 1))
         else
-            echo "  FAILED: YOLO experiments"
+            echo "  FAILED: YOLO experiments ($(format_duration ${yolo_duration}))"
             failed=$((failed + 1))
         fi
 
@@ -371,45 +620,67 @@ fi
 if [ "${NO_FIGURES}" = true ]; then
     skip_phase "Collect paper figures" "--no-figures flag set"
 else
-    echo ""
-    echo "-----------------------------------------"
-    echo "Collecting paper figures..."
-    echo "-----------------------------------------"
-    "${SCRIPT_DIR}/collect_figures.sh"
+    run_phase "Collect paper figures" "${SCRIPT_DIR}/collect_figures.sh"
 fi
 
 # ─────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────
+OVERALL_END=$(date +%s)
+OVERALL_DURATION=$((OVERALL_END - OVERALL_START))
 total=$((passed + failed + skipped))
 
-echo ""
-echo "========================================="
-echo "Evaluation Summary"
-echo "========================================="
-echo "  Passed:  ${passed}"
-echo "  Failed:  ${failed}"
-echo "  Skipped: ${skipped}"
-echo "  Total:   ${total}"
-echo ""
-echo "Result locations:"
-if [ "${RUN_MC}" = true ]; then
-    echo "  Monte Carlo:    ${WORKSPACE_DIR}/experiments/monte_carlo/results/"
-fi
-if [ "${RUN_IF}" = true ]; then
-    echo "  Interference:   ${WORKSPACE_DIR}/experiments/interference/results/"
-fi
-if [ "${RUN_YOLO}" = true ] && [ "${HAS_GPU}" = true ] && [ "${MODE}" = "full" ]; then
-    echo "  YOLO:           ${WORKSPACE_DIR}/experiments/yolo/results/"
-fi
-echo ""
-echo "  Paper figures:  ${WORKSPACE_DIR}/paper_figures/"
-echo ""
+{
+    echo ""
+    echo "========================================="
+    echo "Evaluation Summary"
+    echo "========================================="
+    echo "  Passed:  ${passed}"
+    echo "  Failed:  ${failed}"
+    echo "  Skipped: ${skipped}"
+    echo "  Total:   ${total}"
+    echo ""
+    echo "-----------------------------------------"
+    echo "Timing Breakdown"
+    echo "-----------------------------------------"
+    printf "  %-45s %-10s %s\n" "Phase" "Status" "Duration"
+    printf "  %-45s %-10s %s\n" "-----" "------" "--------"
+
+    for i in "${!PHASE_NAMES[@]}"; do
+        printf "  %-45s %-10s %s\n" \
+            "${PHASE_NAMES[$i]}" \
+            "${PHASE_STATUSES[$i]}" \
+            "$(format_duration ${PHASE_DURATIONS[$i]})"
+    done
+
+    echo ""
+    printf "  %-45s %-10s %s\n" "TOTAL" "" "$(format_duration ${OVERALL_DURATION})"
+    echo ""
+    echo "Result locations:"
+    if [ "${RUN_MC}" = true ]; then
+        echo "  Monte Carlo:    ${WORKSPACE_DIR}/experiments/monte_carlo/results/"
+    fi
+    if [ "${RUN_IF}" = true ]; then
+        echo "  Interference:   ${WORKSPACE_DIR}/experiments/interference/results/"
+    fi
+    if [ "${RUN_YOLO}" = true ] && [ "${HAS_GPU}" = true ] && [ "${MODE}" = "full" ]; then
+        echo "  YOLO:           ${WORKSPACE_DIR}/experiments/yolo/results/"
+    fi
+    echo ""
+    echo "  Paper figures:  ${WORKSPACE_DIR}/paper_figures/"
+    echo "  Run logs:       ${OUTPUT_DIR}/"
+    echo "  Timing CSV:     ${TIMING_CSV}"
+    echo ""
+
+    if [ ${failed} -eq 0 ]; then
+        echo "ALL PHASES PASSED"
+    else
+        echo "SOME PHASES FAILED"
+    fi
+} | tee "${OUTPUT_DIR}/summary.txt"
 
 if [ ${failed} -eq 0 ]; then
-    echo "ALL PHASES PASSED"
     exit 0
 else
-    echo "SOME PHASES FAILED"
     exit 1
 fi

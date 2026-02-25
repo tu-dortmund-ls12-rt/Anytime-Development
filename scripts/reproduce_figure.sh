@@ -124,7 +124,7 @@ run_interference() {
     IF_PLOTS="${IF_DIR}/results/plots"
     echo "  Figure 6a: ${IF_PLOTS}/compute_time_vs_batch_size.pdf"
     echo "  Figure 6b: ${IF_PLOTS}/timer_period_vs_batch_size.pdf"
-    echo "  Table I:   ${IF_DIR}/results/aggregated_results.csv"
+    echo "  Table I:   ${IF_DIR}/results/table_1_missed_periods.csv"
     echo "  All plots: ${IF_PLOTS}/"
 }
 

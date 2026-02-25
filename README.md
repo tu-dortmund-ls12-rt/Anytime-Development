@@ -121,7 +121,7 @@ Anytime-Development/
 │   └── yolo/                   # YOLO pipeline (9 steps)
 └── scripts/
     ├── smoke_test.sh           # Quick validation (< 2 min)
-    ├── run_all.sh              # End-to-end runner (--quick/--full/--cpu-only)
+    ├── run_all.sh              # End-to-end runner (--quick/--full/--cpu-only/--clean)
     └── reproduce_figure.sh     # Per-figure reproduction
 ```
 
