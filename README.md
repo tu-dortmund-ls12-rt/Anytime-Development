@@ -21,6 +21,10 @@ docker compose run --rm anytime-cpu bash
 # OR with GPU support
 docker compose build anytime-gpu
 docker compose run --rm anytime-gpu bash
+
+# OR on NVIDIA Jetson (ARM64)
+docker compose build anytime-jetson
+docker compose run --rm anytime-jetson bash
 ```
 
 Inside the container:
@@ -34,6 +38,14 @@ cd ..
 
 # Run all CPU experiments with quick settings (~10 minutes)
 ./scripts/run_all.sh --quick --cpu-only
+
+# Full reproduction including YOLO (~5+ hours)
+./scripts/run_all.sh --full
+
+# Run specific experiment groups
+./scripts/run_all.sh --full --monte-carlo
+./scripts/run_all.sh --full --interference
+./scripts/run_all.sh --full --yolo
 
 # Reproduce a specific paper figure
 ./scripts/reproduce_figure.sh 5a --quick
@@ -58,9 +70,10 @@ Evaluates batch size scaling, mode comparison (reactive vs proactive), and threa
 ```bash
 ./scripts/reproduce_figure.sh 5a        # Full run (~40 min)
 ./scripts/reproduce_figure.sh 5a --quick # Quick run (~5 min)
+./scripts/reproduce_figure.sh 5 --quick  # Both 5a + 5b (~5 min)
 ```
 
-### Interference (Figure 6, Table I)
+### Interference (Figures 6a, 6b, Table I)
 
 Measures timing interference between anytime batch processing and periodic timer tasks.
 
@@ -76,9 +89,27 @@ Evaluates anytime YOLO object detection with layer-wise cancellation on GPU.
 ```bash
 ./scripts/reproduce_figure.sh 7a  # Quality progression (~30 min)
 ./scripts/reproduce_figure.sh 7b  # Runtime comparison (~1 hr)
+./scripts/reproduce_figure.sh 7   # Both 7a + 7b (~1.5 hrs)
 ```
 
 See [`ARTIFACT_EVALUATION.md`](ARTIFACT_EVALUATION.md) for YOLO prerequisites (weights and test images).
+
+### Output
+
+Paper figures are collected into `paper_figures/` after each run. To re-collect at any time:
+
+```bash
+./scripts/collect_figures.sh
+```
+
+### Cleanup
+
+To re-run experiments from a clean state:
+
+```bash
+./scripts/run_all.sh --clean      # Remove experiment outputs
+./scripts/run_all.sh --clean-all  # Also remove build artifacts, YOLO weights, and video frames
+```
 
 ## Tracing
 
@@ -87,9 +118,9 @@ All experiments use LTTng for low-overhead tracing. Custom tracepoints are defin
 Key tracepoints:
 
 - `anytime:anytime_compute_entry/exit` — Batch computation timing
-- `anytime:client_send_goal` — Client request tracking
+- `anytime:anytime_client_send_goal` — Client request tracking
 - `anytime:yolo_layer_start/end` — YOLO layer processing
-- `anytime:interference_timer_callback` — Timer interference
+- `anytime:interference_timer_callback_entry/exit` — Timer interference
 
 View traces:
 
@@ -99,21 +130,23 @@ babeltrace ~/.lttng-traces/session_name/
 
 ## Project Structure
 
-```
+```text
 Anytime-Development/
 ├── ARTIFACT_EVALUATION.md      # Artifact evaluation guide
 ├── main.pdf                    # Accepted paper
-├── docker-compose.yml          # Container management (GPU + CPU)
+├── docker-compose.yml          # Container management (GPU + CPU + Jetson)
 ├── LICENSE                     # Apache 2.0
 ├── requirements.txt            # Python dependencies
+├── paper_figures/              # Collected paper figures (generated)
 ├── packages/src/
 │   ├── anytime_core/           # Base anytime computation framework
 │   ├── anytime_interfaces/     # ROS 2 action type definitions
 │   ├── anytime_monte_carlo/    # Monte Carlo pi estimation (CPU)
-│   ├── anytime_yolo/           # Anytime YOLO detection (GPU)
+│   ├── anytime_yolo/           # Anytime YOLO object detection (GPU)
 │   ├── anytime_tracing/        # LTTng tracepoint definitions
 │   ├── experiments/            # Launch files and default configs
 │   ├── interference/           # Timer interference test node
+│   ├── test_action/            # Test action for executor testing
 │   └── video_publisher/        # Video frame publisher for YOLO
 ├── experiments/
 │   ├── monte_carlo/            # MC experiment scripts and evaluation
@@ -121,8 +154,10 @@ Anytime-Development/
 │   └── yolo/                   # YOLO pipeline (9 steps)
 └── scripts/
     ├── smoke_test.sh           # Quick validation (< 2 min)
-    ├── run_all.sh              # End-to-end runner (--quick/--full/--cpu-only/--clean)
-    └── reproduce_figure.sh     # Per-figure reproduction
+    ├── run_all.sh              # End-to-end runner (--quick/--full/--cpu-only/--gpu-only/--clean)
+    ├── reproduce_figure.sh     # Per-figure reproduction
+    ├── collect_figures.sh      # Collect paper figures into paper_figures/
+    └── warmup_yolo_engines.sh  # Build TensorRT engines from ONNX weights
 ```
 
 ## Citation
