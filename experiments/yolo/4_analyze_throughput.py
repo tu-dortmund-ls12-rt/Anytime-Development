@@ -228,6 +228,7 @@ def analyze_runtime_trace(trace_dir):
         return None
 
     config = parse_config_from_trace_name(trace_dir.name)
+    is_async = config.get('sync_mode') == 'async'
 
     # Track per-goal metrics
     goals = []
@@ -241,6 +242,7 @@ def analyze_runtime_trace(trace_dir):
         'exit_calc_start_times': {},
         'total_layers': 0,
         'last_layer_end_time': None,  # Track when the last layer finished
+        'prev_layer_end_time': None,  # Track previous layer_end for async deltas
         'final_exit_cost': None,  # Time from last layer to result
     }
 
@@ -263,6 +265,7 @@ def analyze_runtime_trace(trace_dir):
                 'exit_calc_start_times': {},
                 'total_layers': 0,
                 'last_layer_end_time': None,
+                'prev_layer_end_time': None,
                 'final_exit_cost': None,
             }
 
@@ -272,34 +275,31 @@ def analyze_runtime_trace(trace_dir):
 
         elif event.event_name == 'yolo_layer_end':
             layer_num = event.fields.get('layer_num', 0)
-            # yolo_layer_start uses layer_num-1, yolo_layer_end uses layer_num
-            start_layer_num = layer_num - 1
-            if start_layer_num in current_goal['layer_start_times']:
-                start_time = current_goal['layer_start_times'][start_layer_num]
+            if is_async and current_goal['prev_layer_end_time'] is not None:
+                # Async mode: use consecutive layer_end deltas
                 computation_time = (
-                    event.timestamp - start_time) / 1e6  # Convert to ms
+                    event.timestamp - current_goal['prev_layer_end_time']) / 1e6
                 current_goal['layer_computation_times'][layer_num] = computation_time
-            current_goal['total_layers'] = max(
-                current_goal['total_layers'], layer_num)
-            # Track the timestamp of the last layer end
-            current_goal['last_layer_end_time'] = event.timestamp
-
-        elif event.event_name == 'yolo_cuda_callback':
-            # In async mode, CUDA callbacks indicate layer completion
-            # processed_layers = N means layers 0 through N-1 are complete
-            processed_layers = event.fields.get('processed_layers', 0)
-            if processed_layers > 0:
-                layer_num = processed_layers - 1  # The layer that just completed
-                # Find the most recent yolo_layer_start for this layer
-                if layer_num in current_goal['layer_start_times']:
-                    start_time = current_goal['layer_start_times'][layer_num]
+            else:
+                # Sync mode (or first async layer): pair with layer_start
+                start_layer_num = layer_num - 1
+                if start_layer_num in current_goal['layer_start_times']:
+                    start_time = current_goal['layer_start_times'][start_layer_num]
                     computation_time = (
                         event.timestamp - start_time) / 1e6  # Convert to ms
-                    # Store with layer_num+1 to match sync mode numbering (layer_end uses layer_num)
-                    current_goal['layer_computation_times'][processed_layers] = computation_time
+                    current_goal['layer_computation_times'][layer_num] = computation_time
+            current_goal['total_layers'] = max(
+                current_goal['total_layers'], layer_num)
+            current_goal['last_layer_end_time'] = event.timestamp
+            current_goal['prev_layer_end_time'] = event.timestamp
+
+        elif event.event_name == 'yolo_cuda_callback':
+            # In async mode, CUDA callbacks indicate batch completion
+            # Layer computation times are already handled by layer_end events
+            processed_layers = event.fields.get('processed_layers', 0)
+            if processed_layers > 0:
                 current_goal['total_layers'] = max(
                     current_goal['total_layers'], processed_layers)
-                # Track the timestamp of the last layer end (for async mode)
                 current_goal['last_layer_end_time'] = event.timestamp
 
         elif event.event_name == 'yolo_exit_calculation_start':

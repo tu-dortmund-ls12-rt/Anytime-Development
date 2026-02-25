@@ -222,7 +222,7 @@ paper_figures/
 ├── figure_6a_jitter_vs_batch_size.pdf
 ├── figure_6b_compute_time_vs_batch_size.pdf
 ├── figure_7a_quality_ratio_progression.pdf
-├── figure_7b_throughput_comparison.png
+├── figure_7b_total_runtime_comparison.pdf
 └── table_1_interference_metrics.csv
 ```
 
@@ -243,7 +243,7 @@ The full experiment results (including additional diagnostic plots and raw data)
 | Figure 6a | `experiments/interference/results/plots/jitter_vs_batch_size.pdf` |
 | Figure 6b | `experiments/interference/results/plots/compute_time_vs_batch_size.pdf` |
 | Figure 7a | `experiments/yolo/results/quality_analysis/quality_ratio_progression.pdf` |
-| Figure 7b | `experiments/yolo/results/runtime_analysis/throughput_comparison.png` |
+| Figure 7b | `experiments/yolo/results/phase4_analysis/total_runtime_comparison.pdf` |
 | Table I (CSV) | `experiments/interference/results/aggregated_results.csv` |
 
 ### Additional diagnostic plots

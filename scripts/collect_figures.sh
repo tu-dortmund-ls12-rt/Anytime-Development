@@ -56,9 +56,9 @@ copy_if_exists "${IF_DIR}/results/aggregated_results.csv" \
 copy_if_exists "${YOLO_DIR}/results/quality_analysis/quality_ratio_progression.pdf" \
                "${OUTPUT_DIR}/figure_7a_quality_ratio_progression.pdf"
 
-# Figure 7b: YOLO — throughput comparison
-copy_if_exists "${YOLO_DIR}/results/runtime_analysis/throughput_comparison.png" \
-               "${OUTPUT_DIR}/figure_7b_throughput_comparison.png"
+# Figure 7b: YOLO — total runtime comparison
+copy_if_exists "${YOLO_DIR}/results/phase4_analysis/total_runtime_comparison.pdf" \
+               "${OUTPUT_DIR}/figure_7b_total_runtime_comparison.pdf"
 
 echo ""
 if [ ${collected} -eq 0 ]; then
