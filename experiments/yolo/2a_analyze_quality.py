@@ -661,7 +661,7 @@ def plot_layer_wise_boxplot(metrics):
 
     fig, ax = plt.subplots(figsize=(14, 6))
 
-    bp = ax.boxplot(data, tick_labels=layers, patch_artist=True)
+    bp = ax.boxplot(data, labels=layers, patch_artist=True)
 
     # Color boxes
     for patch in bp['boxes']:
