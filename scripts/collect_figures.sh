@@ -48,8 +48,8 @@ copy_if_exists "${IF_DIR}/results/plots/compute_time_vs_batch_size.pdf" \
 copy_if_exists "${IF_DIR}/results/plots/timer_period_vs_batch_size.pdf" \
                "${OUTPUT_DIR}/figure_6b_timer_period_vs_batch_size.pdf"
 
-# Table I: Interference — aggregated metrics
-copy_if_exists "${IF_DIR}/results/aggregated_results.csv" \
+# Table I: Interference — missed timer periods
+copy_if_exists "${IF_DIR}/results/table_1_missed_periods.csv" \
                "${OUTPUT_DIR}/table_1_interference_metrics.csv"
 
 # Figure 7a: YOLO — quality ratio progression

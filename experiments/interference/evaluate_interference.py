@@ -687,6 +687,26 @@ def main():
         json.dump(aggregated, f, indent=2, default=str)
     print(f"  Saved: {RESULTS_DIR / 'aggregated_results.json'}")
 
+    # Save condensed Table I: missed periods % by mode and batch size
+    table_batch_sizes = [1024, 2048, 4096, 16384, 32768, 65536]
+    table_rows = {}
+    for config, metrics in aggregated.items():
+        parsed = parse_config_name(config)
+        mode = parsed['mode'].capitalize()
+        bs = parsed['batch_size']
+        if bs in table_batch_sizes:
+            table_rows.setdefault(mode, {})[bs] = metrics['missed_periods_percent']
+    table1_rows = []
+    for mode in ['Proactive', 'Reactive']:
+        if mode in table_rows:
+            row = {'Configuration': mode}
+            for bs in table_batch_sizes:
+                row[str(bs)] = f"{table_rows[mode].get(bs, 0):.2f}%"
+            table1_rows.append(row)
+    table1_df = pd.DataFrame(table1_rows)
+    table1_df.to_csv(RESULTS_DIR / 'table_1_missed_periods.csv', index=False)
+    print(f"  Saved: {RESULTS_DIR / 'table_1_missed_periods.csv'}")
+
     # Generate plots
     generate_plots(aggregated)
 
