@@ -40,3 +40,6 @@ paper_figures/
 # Evaluation run logs
 eval_output/
 
+# Reviewer credentials (instantiated, not committed)
+REVIEWER_CREDENTIALS.md
+

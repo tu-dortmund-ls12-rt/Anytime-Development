@@ -130,7 +130,7 @@
         {
             "label": "ROS2-Download-Images",
             "type": "shell",
-            "command": "mkdir -p ${workspaceFolder}/packages/src/video_publisher/images && cd ${workspaceFolder}/packages/src/video_publisher/images && wget https://tu-dortmund.sciebo.de/s/aA9MDhgN2lBmeZk/download -O images.zip && unzip -o images.zip -d . && rm images.zip",
+            "command": "mkdir -p ${workspaceFolder}/packages/src/video_publisher/images && cd ${workspaceFolder}/packages/src/video_publisher && wget https://tu-dortmund.sciebo.de/s/aA9MDhgN2lBmeZk/download -O images.zip && unzip -o images.zip -d . && rm images.zip",
             "problemMatcher": [],
             "presentation": {
                 "echo": true,

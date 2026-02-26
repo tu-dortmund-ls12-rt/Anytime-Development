@@ -108,7 +108,7 @@ scp -P <JETSON_PORT> -r <JETSON_USERNAME>@<JETSON_IP>:~/Anytime-Development/expe
 ### Build and enter the container
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/HarunTeper/Anytime-Development.git
 cd Anytime-Development
 
 docker compose build anytime-gpu
@@ -168,7 +168,7 @@ This path reproduces Figures 5a, 5b, 6, and Table I. Figures 7a and 7b (YOLO) re
 ### Build and enter the container
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/HarunTeper/Anytime-Development.git
 cd Anytime-Development
 
 docker compose build anytime-cpu
